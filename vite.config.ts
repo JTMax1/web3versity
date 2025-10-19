@@ -54,8 +54,12 @@
       target: 'esnext',
       outDir: 'build',
     },
-    server: {
+     server: {
       port: 3000,
       open: true,
+      host: true, // or '0.0.0.0'
+      allowedHosts: [
+      'jacquetta-ditheistical-cleverly.ngrok-free.dev' // <-- Add this line
+    ]
     },
   });
