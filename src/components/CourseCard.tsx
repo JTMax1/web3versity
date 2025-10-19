@@ -1,6 +1,6 @@
 import React from 'react';
 import { Badge } from './ui/badge';
-import { type Course } from '../lib/mockData';
+import { type ComponentCourse as Course } from '../lib/adapters/courseAdapter';
 import { getDifficultyColor } from '../lib/utils';
 import { Star, Clock, Users } from 'lucide-react';
 

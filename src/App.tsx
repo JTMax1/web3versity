@@ -149,7 +149,7 @@ function AppContent() {
       {currentPage === 'courses' && (
         <ProtectedRoute onNavigate={handleNavigate}>
           <CourseCatalog
-            courses={mockCourses}
+            
             onEnroll={handleEnroll}
             enrolledCourseIds={enrolledCourseIds}
           />
