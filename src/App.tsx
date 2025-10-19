@@ -12,34 +12,19 @@ import { Profile } from './components/pages/Profile';
 import { mockUser, mockCourses, mockBadges, mockLeaderboard, mockDiscussions, type Course } from './lib/mockData';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
+import { WalletProvider, useWallet } from './contexts/WalletContext';
+import { MetamaskPrompt } from './components/MetamaskPrompt';
 
 type Page = 'home' | 'dashboard' | 'courses' | 'course-viewer' | 'playground' | 'leaderboard' | 'faucet' | 'community' | 'profile';
 
-export default function App() {
+function AppContent() {
+  const { connected } = useWallet();
   const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>(['course_001', 'course_004']);
   const [currentCourse, setCurrentCourse] = useState<Course | null>(null);
 
-  const handleLogin = () => {
-    // Simulate wallet connection
-    setTimeout(() => {
-      setIsLoggedIn(true);
-      setCurrentPage('dashboard');
-      toast.success('Wallet connected successfully!', {
-        description: `Welcome back, ${mockUser.username}!`
-      });
-    }, 500);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentPage('home');
-    toast.info('Logged out successfully');
-  };
-
   const handleNavigate = (page: Page) => {
-    if (page !== 'home' && !isLoggedIn) {
+    if (page !== 'home' && !connected) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -134,19 +119,13 @@ export default function App() {
       <Navigation
         currentPage={currentPage}
         onNavigate={handleNavigate}
-        isLoggedIn={isLoggedIn}
-        onLogin={handleLogin}
-        onLogout={handleLogout}
-        userAvatar={mockUser.profilePicture}
-        username={mockUser.username}
-        hederaAccountId={mockUser.hederaAccountId}
       />
 
       {currentPage === 'home' && (
-        <LandingPage onGetStarted={isLoggedIn ? () => handleNavigate('dashboard') : handleLogin} />
+        <LandingPage onGetStarted={() => connected ? handleNavigate('dashboard') : handleNavigate('home')} />
       )}
 
-      {currentPage === 'dashboard' && isLoggedIn && (
+      {currentPage === 'dashboard' && connected && (
         <Dashboard
           user={mockUser}
           enrolledCourses={enrolledCourses}
@@ -156,7 +135,7 @@ export default function App() {
         />
       )}
 
-      {currentPage === 'courses' && isLoggedIn && (
+      {currentPage === 'courses' && connected && (
         <CourseCatalog
           courses={mockCourses}
           onEnroll={handleEnroll}
@@ -164,7 +143,7 @@ export default function App() {
         />
       )}
 
-      {currentPage === 'course-viewer' && isLoggedIn && currentCourse && (
+      {currentPage === 'course-viewer' && connected && currentCourse && (
         <CourseViewer
           course={currentCourse}
           onBack={handleBackToCourses}
@@ -172,30 +151,32 @@ export default function App() {
         />
       )}
 
-      {currentPage === 'playground' && isLoggedIn && (
+      {currentPage === 'playground' && connected && (
         <CodePlayground />
       )}
 
-      {currentPage === 'leaderboard' && isLoggedIn && (
+      {currentPage === 'leaderboard' && connected && (
         <Leaderboard
           leaderboard={mockLeaderboard}
           currentUserRank={14}
         />
       )}
 
-      {currentPage === 'faucet' && isLoggedIn && (
+      {currentPage === 'faucet' && connected && (
         <Faucet />
       )}
 
-      {currentPage === 'community' && isLoggedIn && (
+      {currentPage === 'community' && connected && (
         <Community discussions={mockDiscussions} />
       )}
 
-      {currentPage === 'profile' && isLoggedIn && (
+      {currentPage === 'profile' && connected && (
         <Profile user={mockUser} badges={mockBadges} />
       )}
 
-      <Toaster 
+      <MetamaskPrompt />
+
+      <Toaster
         position="top-right"
         toastOptions={{
           style: {
@@ -206,5 +187,13 @@ export default function App() {
         }}
       />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <WalletProvider>
+      <AppContent />
+    </WalletProvider>
   );
 }
