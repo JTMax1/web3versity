@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"C:\\Users\\JTMax\\Desktop\\JOBS\\Hackathon\\Three\\Figma Codes\\Web3Versity-1.1\\Web3Versity_1.0\\DOCUMENTATION\\03-Database\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
