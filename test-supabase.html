@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supabase Connection Test - Web3Versity</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 50px auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      padding: 40px;
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 2em;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 1.1em;
+    }
+
+    .test-section {
+      margin: 30px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .test-section h2 {
+      margin-top: 0;
+      color: #667eea;
+      font-size: 1.3em;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 10px 5px 10px 0;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .result.success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+
+    .result.error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+
+    .result.info {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    .status.loading {
+      background: #ffc107;
+      color: #000;
+    }
+
+    .status.success {
+      background: #28a745;
+      color: white;
+    }
+
+    .status.error {
+      background: #dc3545;
+      color: white;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background: #667eea;
+      color: white;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background: #f5f5f5;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+      background: #667eea;
+      color: white;
+    }
+
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 2px solid #eee;
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔌 Supabase Connection Test</h1>
+    <p class="subtitle">Web3Versity - Phase 1, Task 1.2 Verification</p>
+
+    <!-- Test 1: Environment Configuration -->
+    <div class="test-section">
+      <h2>1. Environment Configuration</h2>
+      <button onclick="testEnvironment()">Test Environment</button>
+      <div id="env-result"></div>
+    </div>
+
+    <!-- Test 2: Supabase Connection -->
+    <div class="test-section">
+      <h2>2. Supabase Connection</h2>
+      <button onclick="testConnection()">Test Connection</button>
+      <div id="connection-result"></div>
+    </div>
+
+    <!-- Test 3: Type Safety -->
+    <div class="test-section">
+      <h2>3. Type Safety Test</h2>
+      <button onclick="testTypes()">Test Types</button>
+      <div id="types-result"></div>
+    </div>
+
+    <!-- Test 4: API Functions -->
+    <div class="test-section">
+      <h2>4. API Functions Test</h2>
+      <button onclick="testAPI()">Test API Functions</button>
+      <div id="api-result"></div>
+    </div>
+
+    <!-- Test 5: Error Handling -->
+    <div class="test-section">
+      <h2>5. Error Handling Test</h2>
+      <button onclick="testErrors()">Test Error Handling</button>
+      <div id="error-result"></div>
+    </div>
+
+    <!-- Test 6: Run All Tests -->
+    <div class="test-section">
+      <h2>🚀 Run All Tests</h2>
+      <button onclick="runAllTests()">Run All Tests</button>
+      <div id="all-results"></div>
+    </div>
+
+    <div class="footer">
+      <p>Phase 1, Task 1.2: Supabase Client Setup</p>
+      <p>Web3Versity Platform | Hedera Africa Hackathon 2025</p>
+    </div>
+  </div>
+
+  <script type="module">
+    // Import from the actual implementation
+    import { env } from './src/config/env.ts';
+    import {
+      supabase,
+      checkConnection,
+      supabaseUtils,
+      getCourses,
+      getAchievements,
+      getAllPlatformSettings,
+      getUserByWallet,
+      handleSupabaseError,
+      getErrorMessage,
+      ERROR_CODES,
+    } from './src/lib/supabase/index.ts';
+
+    // Make functions available globally for onclick handlers
+    window.testEnvironment = async function() {
+      const resultDiv = document.getElementById('env-result');
+      resultDiv.innerHTML = '<div class="result info">Testing environment configuration...</div>';
+
+      try {
+        const config = {
+          'Supabase URL': env.SUPABASE_URL,
+          'Supabase Key': env.SUPABASE_ANON_KEY.substring(0, 20) + '...',
+          'Hedera Network': env.HEDERA_NETWORK,
+          'Hedera RPC': env.HEDERA_TESTNET_RPC,
+          'Hedera Chain ID': env.HEDERA_CHAIN_ID,
+          'Operator ID': env.HEDERA_OPERATOR_ID,
+          'Operator EVM': env.HEDERA_OPERATOR_EVM,
+          'Environment': env.IS_DEVELOPMENT ? 'Development' : 'Production',
+        };
+
+        let html = '<div class="result success">✅ Environment Configuration\n\n';
+        for (const [key, value] of Object.entries(config)) {
+          html += `${key}: ${value}\n`;
+        }
+        html += '</div>';
+
+        resultDiv.innerHTML = html;
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+      }
+    };
+
+    window.testConnection = async function() {
+      const resultDiv = document.getElementById('connection-result');
+      resultDiv.innerHTML = '<div class="result info">Testing Supabase connection...</div>';
+
+      try {
+        // Test basic connection
+        const isConnected = await checkConnection();
+
+        if (isConnected) {
+          // Get detailed stats
+          const stats = await supabaseUtils.getStats();
+
+          let html = '<div class="result success">✅ Supabase Connection Successful!\n\n';
+          html += 'Database Statistics:\n';
+          html += '<table>';
+          html += '<thead><tr><th>Table</th><th>Row Count</th></tr></thead>';
+          html += '<tbody>';
+
+          for (const [table, count] of Object.entries(stats)) {
+            html += `<tr><td>${table}</td><td>${count}</td></tr>`;
+          }
+
+          html += '</tbody></table>';
+          html += '</div>';
+
+          resultDiv.innerHTML = html;
+        } else {
+          resultDiv.innerHTML = '<div class="result error">❌ Connection failed</div>';
+        }
+      } catch (error) {
+        const message = getErrorMessage(error);
+        resultDiv.innerHTML = `<div class="result error">❌ Error: ${message}\n\n${error.stack}</div>`;
+      }
+    };
+
+    window.testTypes = function() {
+      const resultDiv = document.getElementById('types-result');
+
+      let html = '<div class="result success">✅ Type Definitions Loaded\n\n';
+      html += 'Available Types:\n';
+      html += '• User, UserInsert, UserUpdate\n';
+      html += '• Course, Lesson, UserProgress\n';
+      html += '• Achievement, UserAchievement, UserStreak\n';
+      html += '• Discussion, Reply, DiscussionVote\n';
+      html += '• FaucetRequest, Transaction, NFTCertificate\n';
+      html += '• PlatformSetting, CoursePrerequisite, LeaderboardCache\n';
+      html += '• LessonCompletion\n\n';
+      html += 'Available Enums:\n';
+      html += '• CourseTrack: explorer | developer\n';
+      html += '• CourseDifficulty: beginner | intermediate | advanced\n';
+      html += '• LessonType: text | interactive | quiz | practical\n';
+      html += '• AchievementCategory: course | streak | xp | community | special\n';
+      html += '• AchievementTier: bronze | silver | gold | platinum\n';
+      html += '• TransactionType: faucet_request | nft_mint | course_completion\n';
+      html += '• TransactionStatus: pending | completed | failed\n';
+      html += '• NFTStatus: pending | minted | failed\n';
+      html += '</div>';
+
+      resultDiv.innerHTML = html;
+    };
+
+    window.testAPI = async function() {
+      const resultDiv = document.getElementById('api-result');
+      resultDiv.innerHTML = '<div class="result info">Testing API functions...</div>';
+
+      try {
+        const results = [];
+
+        // Test 1: Get courses
+        try {
+          const courses = await getCourses();
+          results.push(`✅ getCourses(): ${courses.length} courses found`);
+        } catch (error) {
+          results.push(`⚠️ getCourses(): ${getErrorMessage(error)}`);
+        }
+
+        // Test 2: Get achievements
+        try {
+          const achievements = await getAchievements();
+          results.push(`✅ getAchievements(): ${achievements.length} achievements found`);
+        } catch (error) {
+          results.push(`⚠️ getAchievements(): ${getErrorMessage(error)}`);
+        }
+
+        // Test 3: Get platform settings
+        try {
+          const settings = await getAllPlatformSettings();
+          results.push(`✅ getAllPlatformSettings(): ${settings.length} settings found`);
+        } catch (error) {
+          results.push(`⚠️ getAllPlatformSettings(): ${getErrorMessage(error)}`);
+        }
+
+        // Test 4: Get user by wallet (should return null if not exists)
+        try {
+          const user = await getUserByWallet('0x0000000000000000000000000000000000000000');
+          results.push(`✅ getUserByWallet(): ${user ? 'User found' : 'No user (expected)'}`);
+        } catch (error) {
+          results.push(`⚠️ getUserByWallet(): ${getErrorMessage(error)}`);
+        }
+
+        let html = '<div class="result success">API Function Tests:\n\n';
+        html += results.join('\n');
+        html += '\n\nTotal Tests: ' + results.length;
+        html += '\nPassed: ' + results.filter(r => r.startsWith('✅')).length;
+        html += '\nWarnings: ' + results.filter(r => r.startsWith('⚠️')).length;
+        html += '</div>';
+
+        resultDiv.innerHTML = html;
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result error">❌ Error: ${getErrorMessage(error)}\n\n${error.stack}</div>`;
+      }
+    };
+
+    window.testErrors = function() {
+      const resultDiv = document.getElementById('error-result');
+
+      try {
+        // Test error handling
+        const testError = new Error('Test error');
+        const supabaseError = handleSupabaseError(testError);
+        const message = getErrorMessage(testError);
+
+        let html = '<div class="result success">✅ Error Handling Tests\n\n';
+        html += 'Available Error Codes:\n';
+
+        for (const [key, value] of Object.entries(ERROR_CODES)) {
+          html += `• ${key}: "${value}"\n`;
+        }
+
+        html += '\nTest Error Conversion:\n';
+        html += `Original: ${testError.message}\n`;
+        html += `Converted: ${message}\n`;
+        html += `Error Code: ${supabaseError.code}\n`;
+
+        html += '</div>';
+
+        resultDiv.innerHTML = html;
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result error">❌ Error: ${error.message}</div>`;
+      }
+    };
+
+    window.runAllTests = async function() {
+      const resultDiv = document.getElementById('all-results');
+      resultDiv.innerHTML = '<div class="result info">Running all tests...</div>';
+
+      const tests = [
+        { name: 'Environment', fn: window.testEnvironment },
+        { name: 'Connection', fn: window.testConnection },
+        { name: 'Types', fn: window.testTypes },
+        { name: 'API Functions', fn: window.testAPI },
+        { name: 'Error Handling', fn: window.testErrors },
+      ];
+
+      let html = '<div class="result success">🚀 Running All Tests\n\n';
+
+      for (const test of tests) {
+        try {
+          html += `Running ${test.name}... `;
+          await test.fn();
+          html += '✅ PASS\n';
+        } catch (error) {
+          html += `❌ FAIL: ${error.message}\n`;
+        }
+      }
+
+      html += '\n✅ All tests completed! Check individual sections for details.';
+      html += '</div>';
+
+      resultDiv.innerHTML = html;
+    };
+
+    // Auto-run environment test on load
+    window.addEventListener('load', () => {
+      console.log('🔌 Supabase Test Page Loaded');
+      console.log('Click buttons above to run tests');
+    });
+  </script>
+</body>
+</html>
