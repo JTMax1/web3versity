@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/pages/LandingPage';
 import { Dashboard } from './components/pages/Dashboard';
@@ -9,22 +9,31 @@ import { Leaderboard } from './components/pages/Leaderboard';
 import { Faucet } from './components/pages/Faucet';
 import { Community } from './components/pages/Community';
 import { Profile } from './components/pages/Profile';
-import { mockUser, mockCourses, mockBadges, mockLeaderboard, mockDiscussions, type Course } from './lib/mockData';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { mockCourses, mockBadges, mockLeaderboard, mockDiscussions, type Course } from './lib/mockData';
+import { adaptDatabaseUserToUI } from './lib/userAdapter';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
-import { WalletProvider, useWallet } from './contexts/WalletContext';
+import { WalletProvider } from './contexts/WalletContext';
+import { useAuth } from './hooks/useAuth';
 import { MetamaskPrompt } from './components/MetamaskPrompt';
 
 type Page = 'home' | 'dashboard' | 'courses' | 'course-viewer' | 'playground' | 'leaderboard' | 'faucet' | 'community' | 'profile';
 
 function AppContent() {
-  const { connected } = useWallet();
+  const { user: dbUser, isAuthenticated, balance } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>(['course_001', 'course_004']);
   const [currentCourse, setCurrentCourse] = useState<Course | null>(null);
 
+  // Convert database user to UI user format for components
+  const user = useMemo(() => {
+    if (!dbUser) return null;
+    return adaptDatabaseUserToUI(dbUser, balance);
+  }, [dbUser, balance]);
+
   const handleNavigate = (page: Page) => {
-    if (page !== 'home' && !connected) {
+    if (page !== 'home' && !isAuthenticated) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -122,56 +131,72 @@ function AppContent() {
       />
 
       {currentPage === 'home' && (
-        <LandingPage onGetStarted={() => connected ? handleNavigate('dashboard') : handleNavigate('home')} />
+        <LandingPage onGetStarted={() => isAuthenticated ? handleNavigate('dashboard') : handleNavigate('home')} />
       )}
 
-      {currentPage === 'dashboard' && connected && (
-        <Dashboard
-          user={mockUser}
-          enrolledCourses={enrolledCourses}
-          badges={mockBadges}
-          onCourseClick={handleEnroll}
-          onNavigate={handleNavigate}
-        />
+      {currentPage === 'dashboard' && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <Dashboard
+            user={user!}
+            enrolledCourses={enrolledCourses}
+            badges={mockBadges}
+            onCourseClick={handleEnroll}
+            onNavigate={handleNavigate}
+          />
+        </ProtectedRoute>
       )}
 
-      {currentPage === 'courses' && connected && (
-        <CourseCatalog
-          courses={mockCourses}
-          onEnroll={handleEnroll}
-          enrolledCourseIds={enrolledCourseIds}
-        />
+      {currentPage === 'courses' && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <CourseCatalog
+            courses={mockCourses}
+            onEnroll={handleEnroll}
+            enrolledCourseIds={enrolledCourseIds}
+          />
+        </ProtectedRoute>
       )}
 
-      {currentPage === 'course-viewer' && connected && currentCourse && (
-        <CourseViewer
-          course={currentCourse}
-          onBack={handleBackToCourses}
-          onCourseComplete={handleCourseComplete}
-        />
+      {currentPage === 'course-viewer' && currentCourse && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <CourseViewer
+            course={currentCourse}
+            onBack={handleBackToCourses}
+            onCourseComplete={handleCourseComplete}
+          />
+        </ProtectedRoute>
       )}
 
-      {currentPage === 'playground' && connected && (
-        <CodePlayground />
+      {currentPage === 'playground' && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <CodePlayground />
+        </ProtectedRoute>
       )}
 
-      {currentPage === 'leaderboard' && connected && (
-        <Leaderboard
-          leaderboard={mockLeaderboard}
-          currentUserRank={14}
-        />
+      {currentPage === 'leaderboard' && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <Leaderboard
+            leaderboard={mockLeaderboard}
+            currentUserRank={14}
+          />
+        </ProtectedRoute>
       )}
 
-      {currentPage === 'faucet' && connected && (
-        <Faucet />
+      {currentPage === 'faucet' && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <Faucet />
+        </ProtectedRoute>
       )}
 
-      {currentPage === 'community' && connected && (
-        <Community discussions={mockDiscussions} />
+      {currentPage === 'community' && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <Community discussions={mockDiscussions} />
+        </ProtectedRoute>
       )}
 
-      {currentPage === 'profile' && connected && (
-        <Profile user={mockUser} badges={mockBadges} />
+      {currentPage === 'profile' && (
+        <ProtectedRoute onNavigate={handleNavigate}>
+          <Profile user={user!} badges={mockBadges} />
+        </ProtectedRoute>
       )}
 
       <MetamaskPrompt />

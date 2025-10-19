@@ -11,6 +11,11 @@ import {
   formatAccountId,
   formatEvmAddress,
 } from '@/lib/hederaUtils';
+import {
+  authenticateWithWallet,
+  AuthenticationError,
+} from '@/lib/auth/wallet-auth';
+import type { User } from '@/lib/supabase/types';
 
 interface WalletState {
   connected: boolean;
@@ -20,12 +25,16 @@ interface WalletState {
   network: string;
   loading: boolean;
   error: string | null;
+  user: User | null;  // Authenticated user from database
+  authLoading: boolean;  // Authentication loading state
+  authError: string | null;  // Authentication error
 }
 
 interface WalletContextType extends WalletState {
   connect: () => Promise<void>;
   disconnect: () => void;
   refreshBalance: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -39,17 +48,35 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     network: 'testnet',
     loading: false,
     error: null,
+    user: null,
+    authLoading: false,
+    authError: null,
   });
 
   // Connect wallet
   const connect = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState(prev => ({ ...prev, loading: true, error: null, authLoading: true, authError: null }));
 
     try {
+      // 1. Connect Metamask wallet
       const result = await connectMetamask();
 
-      // Fetch balance
+      // 2. Fetch balance
       const balance = await getBalance(result.evmAddress);
+
+      // 3. Authenticate with database (create/retrieve user)
+      let user: User | null = null;
+      let authError: string | null = null;
+
+      try {
+        user = await authenticateWithWallet(result.evmAddress, result.accountId);
+        console.log('User authenticated:', user.id);
+      } catch (error) {
+        console.error('Authentication failed:', error);
+        authError = error instanceof AuthenticationError
+          ? error.message
+          : 'Authentication failed';
+      }
 
       setState({
         connected: true,
@@ -59,17 +86,24 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         network: result.network,
         loading: false,
         error: null,
+        user,
+        authLoading: false,
+        authError,
       });
 
       // Persist connection
       localStorage.setItem('walletConnected', 'true');
       localStorage.setItem('walletAddress', result.evmAddress);
+      if (user) {
+        localStorage.setItem('userId', user.id);
+      }
     } catch (error: any) {
       const errorMessage = parseMetamaskError(error);
       setState(prev => ({
         ...prev,
         loading: false,
         error: errorMessage,
+        authLoading: false,
       }));
       throw error;
     }
@@ -86,7 +120,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       network: 'testnet',
       loading: false,
       error: null,
+      user: null,
+      authLoading: false,
+      authError: null,
     });
+    localStorage.removeItem('userId');
   }, []);
 
   // Refresh balance
@@ -100,6 +138,34 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to refresh balance:', error);
     }
   }, [state.account]);
+
+  // Refresh user data
+  const refreshUser = useCallback(async () => {
+    if (!state.account || !state.user) return;
+
+    setState(prev => ({ ...prev, authLoading: true, authError: null }));
+
+    try {
+      const user = await authenticateWithWallet(state.account, state.accountId || state.account);
+      setState(prev => ({
+        ...prev,
+        user,
+        authLoading: false,
+        authError: null,
+      }));
+      localStorage.setItem('userId', user.id);
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+      const authError = error instanceof AuthenticationError
+        ? error.message
+        : 'Failed to refresh user data';
+      setState(prev => ({
+        ...prev,
+        authLoading: false,
+        authError,
+      }));
+    }
+  }, [state.account, state.accountId, state.user]);
 
   // Auto-reconnect on mount
   useEffect(() => {
@@ -151,7 +217,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, [state.connected, connect]);
 
   return (
-    <WalletContext.Provider value={{ ...state, connect, disconnect, refreshBalance }}>
+    <WalletContext.Provider value={{ ...state, connect, disconnect, refreshBalance, refreshUser }}>
       {children}
     </WalletContext.Provider>
   );
