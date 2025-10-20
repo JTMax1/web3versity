@@ -11,7 +11,7 @@ import { ProgressChart } from '../dashboard/ProgressChart';
 import { StreakCalendar } from '../dashboard/StreakCalendar';
 
 export function Profile() {
-  const { user, refetchUser } = useWallet();
+  const { user, refreshUser } = useWallet();
   const { data: stats, isLoading: statsLoading } = useUserStats(user?.id);
   const { enrollments: completedCourses, isLoading: coursesLoading } = useCompletedCourses(user?.id);
   const { data: allBadges, isLoading: badgesLoading } = useUserBadgesWithStatus(user?.id);
@@ -52,7 +52,7 @@ export function Profile() {
       setIsEditingUsername(false);
       toast.success('Username updated successfully!');
       // Refetch user to update context
-      if (refetchUser) refetchUser();
+      if (refreshUser) refreshUser();
     } else {
       toast.error(result.error || 'Failed to update username');
     }
@@ -78,7 +78,7 @@ export function Profile() {
       setIsEditingAvatar(false);
       toast.success('Avatar updated successfully!');
       // Refetch user to update context
-      if (refetchUser) refetchUser();
+      if (refreshUser) refreshUser();
     } else {
       toast.error(result.error || 'Failed to update avatar');
     }

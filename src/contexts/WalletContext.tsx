@@ -13,6 +13,7 @@ import {
 } from '@/lib/hederaUtils';
 import {
   authenticateWithWallet,
+  getUserProfile,
   AuthenticationError,
 } from '@/lib/auth/wallet-auth';
 import type { User } from '@/lib/supabase/types';
@@ -141,19 +142,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Refresh user data
   const refreshUser = useCallback(async () => {
-    if (!state.account || !state.user) return;
+    if (!state.user) return;
 
     setState(prev => ({ ...prev, authLoading: true, authError: null }));
 
     try {
-      const user = await authenticateWithWallet(state.account, state.accountId || state.account);
+      const user = await getUserProfile(state.user.id);
       setState(prev => ({
         ...prev,
         user,
         authLoading: false,
         authError: null,
       }));
-      localStorage.setItem('userId', user.id);
     } catch (error) {
       console.error('Failed to refresh user:', error);
       const authError = error instanceof AuthenticationError
@@ -165,7 +165,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         authError,
       }));
     }
-  }, [state.account, state.accountId, state.user]);
+  }, [state.user]);
 
   // Auto-reconnect on mount
   useEffect(() => {
