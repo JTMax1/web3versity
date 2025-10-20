@@ -2,6 +2,8 @@ import React from 'react';
 import { Button } from './ui/button';
 import { useWallet } from '../contexts/WalletContext';
 import { toast } from 'sonner@2.0.3';
+import { useUserStats } from '../hooks/useStats';
+
 
 interface NavigationProps {
   currentPage: string;
@@ -10,6 +12,9 @@ interface NavigationProps {
 
 export function Navigation({ currentPage, onNavigate }: NavigationProps) {
   const { connected, account, accountId, balance, loading, connect, disconnect } = useWallet();
+  const { user } = useWallet();
+  const { data: stats } = useUserStats(user?.id);
+
 
   const handleConnect = async () => {
     try {
@@ -116,7 +121,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
                   onClick={() => onNavigate('profile')}
                   className="flex items-center gap-3 bg-white/90 rounded-full px-4 py-2 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)] hover:scale-105 transition-transform"
                 >
-                  <span className="text-xl">🦊</span>
+                  <span className="text-xl">{stats?.avatarEmoji || '👤'}</span>
                   <div className="hidden md:flex flex-col items-start">
                     <div className="flex items-center gap-2">
                       <span className="text-[#0084C7] text-sm font-medium">
