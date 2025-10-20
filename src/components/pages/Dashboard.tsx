@@ -1,18 +1,26 @@
 import React from 'react';
-import { User, Course, Badge as BadgeType } from '../../lib/mockData';
+import { User, Badge as BadgeType } from '../../lib/mockData';
 import { CourseCard } from '../CourseCard';
 import { Flame, TrendingUp, Award, BookOpen } from 'lucide-react';
 import { calculateLevelProgress, getRarityColor } from '../../lib/utils';
+import { useUserEnrollments, useCompletedCourses } from '../../hooks/useEnrollment';
+import { adaptCourseForComponent } from '../../lib/adapters/courseAdapter';
 
 interface DashboardProps {
   user: User;
-  enrolledCourses: Course[];
   badges: BadgeType[];
   onCourseClick: (courseId: string) => void;
   onNavigate: (page: string) => void;
 }
 
-export function Dashboard({ user, enrolledCourses, badges, onCourseClick, onNavigate }: DashboardProps) {
+export function Dashboard({ user, badges, onCourseClick, onNavigate }: DashboardProps) {
+  // Fetch real enrollment data from database
+  // Use useUserEnrollments to get ALL enrollments (including newly enrolled)
+  const { enrollments: allEnrollments, isLoading } = useUserEnrollments(user?.id);
+  const { enrollments: completed } = useCompletedCourses(user?.id);
+
+  // Filter in-progress courses (not completed)
+  const inProgress = allEnrollments.filter(e => !e.completed_at);
   const levelProgress = calculateLevelProgress(user.totalPoints);
   const earnedBadges = badges.filter(b => b.earned);
 
@@ -137,18 +145,27 @@ export function Dashboard({ user, enrolledCourses, badges, onCourseClick, onNavi
             </div>
             <h2>Continue Learning</h2>
           </div>
-          
-          {enrolledCourses.length > 0 ? (
+
+          {isLoading ? (
+            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <p className="text-gray-600">Loading your courses...</p>
+            </div>
+          ) : inProgress && inProgress.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {enrolledCourses.slice(0, 3).map((course) => (
-                <CourseCard
-                  key={course.id}
-                  course={course}
-                  enrolled={true}
-                  progress={Math.random() * 100} // Mock progress
-                  onEnroll={onCourseClick}
-                />
-              ))}
+              {inProgress.slice(0, 3).map((enrollment) => {
+                if (!enrollment.course) return null;
+                const componentCourse = adaptCourseForComponent(enrollment.course);
+
+                return (
+                  <CourseCard
+                    key={enrollment.id}
+                    course={componentCourse}
+                    enrolled={true}
+                    progress={enrollment.progress_percentage || 0}
+                    onEnroll={() => onCourseClick(enrollment.course_id)}
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -166,6 +183,30 @@ export function Dashboard({ user, enrolledCourses, badges, onCourseClick, onNavi
             </div>
           )}
         </div>
+
+        {/* Completed Courses */}
+        {completed && completed.length > 0 && (
+          <div className="mb-12">
+            <h2 className="mb-6">Completed Courses ({completed.length})</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {completed.slice(0, 3).map((enrollment) => {
+                if (!enrollment.course) return null;
+                const componentCourse = adaptCourseForComponent(enrollment.course);
+
+                return (
+                  <CourseCard
+                    key={enrollment.id}
+                    course={componentCourse}
+                    enrolled={true}
+                    progress={100}
+                    isCompleted={true}
+                    onEnroll={() => onCourseClick(enrollment.course_id)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Recommended Courses */}
         <div>
