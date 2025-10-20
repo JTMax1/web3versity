@@ -8,7 +8,7 @@ export function MetamaskPrompt() {
   if (detectMetamask() || dismissed) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-white rounded-lg shadow-xl p-6 max-w-sm border-2 border-orange-500 z-50">
+    <div className="fixed bottom-4 right-4 bg-white rounded-2xl shadow-2xl p-6 max-w-sm border-2 border-[#0084C7] z-50">
       <button
         onClick={() => setDismissed(true)}
         className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
@@ -16,20 +16,29 @@ export function MetamaskPrompt() {
         ✕
       </button>
 
-      <div className="flex items-start gap-4">
-        <div className="text-4xl">🦊</div>
-        <div>
-          <h3 className="font-bold text-lg mb-2">Metamask Required</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            To use Web3Versity, you need Metamask wallet extension installed.
-          </p>
-          <Button
-            onClick={() => window.open('https://metamask.io/download/', '_blank')}
-            className="w-full bg-orange-500 hover:bg-orange-600"
-          >
-            Install Metamask
-          </Button>
+      {/* Logo Header */}
+      <div className="flex items-center justify-center mb-4">
+        <img
+          src="/assets/w3v-logo.png"
+          alt="Web3versity"
+          className="h-16 w-auto"
+        />
+      </div>
+
+      <div className="text-center">
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <div className="text-4xl">🦊</div>
+          <h3 className="font-bold text-lg">Metamask Required</h3>
         </div>
+        <p className="text-sm text-gray-600 mb-4">
+          To use Web3versity, you need Metamask wallet extension installed.
+        </p>
+        <Button
+          onClick={() => window.open('https://metamask.io/download/', '_blank')}
+          className="w-full bg-gradient-to-r from-[#0084C7] to-[#00a8e8] hover:from-[#0074b7] hover:to-[#0098d8]"
+        >
+          Install Metamask
+        </Button>
       </div>
     </div>
   );

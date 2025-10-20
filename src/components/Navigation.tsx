@@ -67,14 +67,16 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <button 
+          <button
             onClick={() => onNavigate('home')}
             className="flex items-center gap-3 group"
           >
-            <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)] group-hover:scale-105 transition-transform">
-              <span className="text-2xl">🎓</span>
-            </div>
-            <span className="text-white text-2xl font-bold tracking-tight">Web3versity</span>
+            <img
+              src="/assets/w3v-logo.png"
+              alt="Web3versity Logo"
+              className="h-12 w-auto group-hover:scale-105 transition-transform"
+            />
+            <span className="hidden md:inline-block text-white text-2xl font-bold tracking-tight">Web3versity</span>
           </button>
 
           {/* Navigation Links */}
