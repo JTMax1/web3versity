@@ -6,14 +6,16 @@ import { useWallet } from '../../contexts/WalletContext';
 import { useUserStats } from '../../hooks/useStats';
 import { useCompletedCourses } from '../../hooks/useEnrollment';
 import { useUserBadgesWithStatus } from '../../hooks/useBadges';
+import { useUpdateUserProfile } from '../../hooks/useUser';
 import { ProgressChart } from '../dashboard/ProgressChart';
 import { StreakCalendar } from '../dashboard/StreakCalendar';
 
 export function Profile() {
-  const { user } = useWallet();
+  const { user, refetchUser } = useWallet();
   const { data: stats, isLoading: statsLoading } = useUserStats(user?.id);
   const { enrollments: completedCourses, isLoading: coursesLoading } = useCompletedCourses(user?.id);
   const { data: allBadges, isLoading: badgesLoading } = useUserBadgesWithStatus(user?.id);
+  const updateProfile = useUpdateUserProfile();
 
   if (!user) {
     return (
@@ -28,24 +30,63 @@ export function Profile() {
   }
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [editedUsername, setEditedUsername] = useState(user.username || '');
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [editedAvatar, setEditedAvatar] = useState(user.avatar_emoji || '👤');
   const [showBalance, setShowBalance] = useState(false);
 
   const isLoading = statsLoading || coursesLoading || badgesLoading;
   const memberSince = user.created_at ? format(new Date(user.created_at), 'MMMM yyyy') : 'Recently';
 
-  const handleSaveUsername = () => {
+  const handleSaveUsername = async () => {
     if (editedUsername.trim() === '') {
       toast.error('Username cannot be empty');
       return;
     }
-    // TODO: Save to backend via API
-    setIsEditingUsername(false);
-    toast.success('Username updated successfully!');
+
+    const result = await updateProfile.mutateAsync({
+      userId: user.id,
+      updates: { username: editedUsername.trim() }
+    });
+
+    if (result.success) {
+      setIsEditingUsername(false);
+      toast.success('Username updated successfully!');
+      // Refetch user to update context
+      if (refetchUser) refetchUser();
+    } else {
+      toast.error(result.error || 'Failed to update username');
+    }
   };
 
-  const handleCancelEdit = () => {
+  const handleCancelUsernameEdit = () => {
     setEditedUsername(user.username);
     setIsEditingUsername(false);
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!editedAvatar.trim()) {
+      toast.error('Please select an emoji');
+      return;
+    }
+
+    const result = await updateProfile.mutateAsync({
+      userId: user.id,
+      updates: { avatar_emoji: editedAvatar }
+    });
+
+    if (result.success) {
+      setIsEditingAvatar(false);
+      toast.success('Avatar updated successfully!');
+      // Refetch user to update context
+      if (refetchUser) refetchUser();
+    } else {
+      toast.error(result.error || 'Failed to update avatar');
+    }
+  };
+
+  const handleCancelAvatarEdit = () => {
+    setEditedAvatar(user.avatar_emoji || '👤');
+    setIsEditingAvatar(false);
   };
 
   return (
@@ -55,8 +96,53 @@ export function Profile() {
         <div className="bg-white rounded-3xl p-8 mb-8 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
           <div className="flex flex-col md:flex-row items-center gap-8">
             {/* Avatar */}
-            <div className="w-32 h-32 bg-gradient-to-br from-[#0084C7]/20 to-[#00a8e8]/20 rounded-full flex items-center justify-center shadow-[0_8px_32px_rgba(0,132,199,0.2),inset_-4px_-4px_16px_rgba(0,0,0,0.05),inset_4px_4px_16px_rgba(255,255,255,0.9)]">
-              <span className="text-6xl">{stats?.avatarEmoji || user.avatar_emoji || '👤'}</span>
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-32 h-32 bg-gradient-to-br from-[#0084C7]/20 to-[#00a8e8]/20 rounded-full flex items-center justify-center shadow-[0_8px_32px_rgba(0,132,199,0.2),inset_-4px_-4px_16px_rgba(0,0,0,0.05),inset_4px_4px_16px_rgba(255,255,255,0.9)]">
+                <span className="text-6xl">{stats?.avatarEmoji || user.avatar_emoji || '👤'}</span>
+              </div>
+
+              {/* Avatar Edit Controls */}
+              {isEditingAvatar ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editedAvatar}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Limit to 2 characters (for emojis)
+                      if (value.length <= 2) {
+                        setEditedAvatar(value);
+                      }
+                    }}
+                    placeholder="Type emoji"
+                    className="w-20 text-center text-2xl px-2 py-1 border-2 border-[#0084C7] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7]/50"
+                    autoFocus
+                    maxLength={2}
+                  />
+                  <button
+                    onClick={handleSaveAvatar}
+                    className="p-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-[0_4px_12px_rgba(34,197,94,0.3)]"
+                    title="Save"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleCancelAvatarEdit}
+                    className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
+                    title="Cancel"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setIsEditingAvatar(true)}
+                  className="flex items-center gap-1 px-3 py-1 bg-[#0084C7]/10 text-[#0084C7] text-sm rounded-xl hover:bg-[#0084C7]/20 transition-colors"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  Edit Avatar
+                </button>
+              )}
             </div>
 
             {/* User Info */}
@@ -79,7 +165,7 @@ export function Profile() {
                       <Check className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={handleCancelEdit}
+                      onClick={handleCancelUsernameEdit}
                       className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
                     >
                       <X className="w-4 h-4" />
