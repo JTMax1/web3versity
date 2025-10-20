@@ -11,7 +11,13 @@ import { CourseSearchBar } from '../CourseSearchBar';
 import { CourseFilters, FilterState } from '../CourseFilters';
 import { CourseGridSkeleton } from '../CourseCardSkeleton';
 import { useCourses } from '../../hooks/useCourses';
+import { useEnroll, useEnrolledCourseIds, useCompletedCourses } from '../../hooks/useEnrollment';
+import { checkPrerequisites } from '../../lib/api/enrollment';
+import { PrerequisiteModal } from '../PrerequisiteModal';
+import { useAuth } from '../../hooks/useAuth';
+import { toast } from 'sonner';
 import { Search, AlertCircle } from 'lucide-react';
+import type { Course } from '../../lib/supabase/types';
 
 // ============================================================================
 // Props Interface
@@ -19,14 +25,15 @@ import { Search, AlertCircle } from 'lucide-react';
 
 interface CourseCatalogProps {
   onEnroll: (courseId: string) => void;
-  enrolledCourseIds: string[];
+  enrolledCourseIds?: string[];
 }
 
 // ============================================================================
 // Course Catalog Component
 // ============================================================================
 
-export function CourseCatalog({ onEnroll, enrolledCourseIds }: CourseCatalogProps) {
+export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>({
     track: 'all',
@@ -35,6 +42,21 @@ export function CourseCatalog({ onEnroll, enrolledCourseIds }: CourseCatalogProp
     sortBy: 'created_at',
     sortOrder: 'desc',
   });
+
+  // Prerequisite modal state
+  const [prerequisiteModal, setPrerequisiteModal] = useState<{
+    isOpen: boolean;
+    courseName: string;
+    prerequisites: Course[];
+  }>({ isOpen: false, courseName: '', prerequisites: [] });
+
+  // Hooks for enrollment data
+  const { enroll, isEnrolling } = useEnroll();
+  const { enrolledIds, isLoading: enrolledLoading } = useEnrolledCourseIds(user?.id);
+  const { enrollments: completedEnrollments } = useCompletedCourses(user?.id);
+
+  // Extract completed course IDs
+  const completedCourseIds = completedEnrollments?.map(e => e.course_id) || [];
 
   // Fetch courses with current filters
   const { courses, isLoading, isError, error } = useCourses({
@@ -55,6 +77,57 @@ export function CourseCatalog({ onEnroll, enrolledCourseIds }: CourseCatalogProp
       sortOrder: 'desc',
     });
     setSearchQuery('');
+  };
+
+  const handleEnrollClick = async (courseId: string) => {
+    if (!user?.id) {
+      toast.error('Please connect your wallet first');
+      return;
+    }
+
+    try {
+      // Check if already enrolled first
+      const isAlreadyEnrolled = enrolledIds.includes(courseId);
+
+      if (isAlreadyEnrolled) {
+        // User is already enrolled, just navigate to the course
+        onEnroll(courseId);
+        return;
+      }
+
+      // Check prerequisites
+      const prereqCheck = await checkPrerequisites(user.id, courseId);
+
+      if (!prereqCheck.canEnroll) {
+        // Show prerequisite modal
+        const course = courses.find(c => c.id === courseId);
+        setPrerequisiteModal({
+          isOpen: true,
+          courseName: course?.title || '',
+          prerequisites: prereqCheck.missingPrerequisites,
+        });
+        return;
+      }
+
+      // Enroll
+      const result = await enroll(user.id, courseId);
+
+      if (result.success) {
+        toast.success('Enrolled successfully!');
+        // Navigate to course
+        onEnroll(courseId);
+      } else {
+        toast.error(result.error || 'Enrollment failed');
+      }
+    } catch (error) {
+      console.error('Enrollment error:', error);
+      toast.error('Failed to enroll in course');
+    }
+  };
+
+  const handleNavigateToPrerequisite = (courseId: string) => {
+    setPrerequisiteModal({ isOpen: false, courseName: '', prerequisites: [] });
+    handleEnrollClick(courseId);
   };
 
   return (
@@ -120,15 +193,24 @@ export function CourseCatalog({ onEnroll, enrolledCourseIds }: CourseCatalogProp
         {/* Course Grid */}
         {!isLoading && !isError && courses.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                onEnroll={onEnroll}
-                enrolled={enrolledCourseIds.includes(course.id)}
-                progress={enrolledCourseIds.includes(course.id) ? Math.random() * 100 : undefined}
-              />
-            ))}
+            {courses.map((course) => {
+              const isEnrolled = enrolledIds.includes(course.id);
+              const isCompleted = completedCourseIds.includes(course.id);
+              // TODO: Implement isLocked based on prerequisites
+              const isLocked = false;
+
+              return (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  onEnroll={handleEnrollClick}
+                  enrolled={isEnrolled}
+                  isCompleted={isCompleted}
+                  isLocked={isLocked}
+                  onLockedClick={handleEnrollClick}
+                />
+              );
+            })}
           </div>
         )}
 
@@ -150,6 +232,15 @@ export function CourseCatalog({ onEnroll, enrolledCourseIds }: CourseCatalogProp
             </button>
           </div>
         )}
+
+        {/* Prerequisite Modal */}
+        <PrerequisiteModal
+          isOpen={prerequisiteModal.isOpen}
+          onClose={() => setPrerequisiteModal({ isOpen: false, courseName: '', prerequisites: [] })}
+          courseName={prerequisiteModal.courseName}
+          prerequisites={prerequisiteModal.prerequisites}
+          onNavigateToCourse={handleNavigateToPrerequisite}
+        />
       </div>
     </div>
   );

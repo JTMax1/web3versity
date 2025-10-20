@@ -23,7 +23,6 @@ type Page = 'home' | 'dashboard' | 'courses' | 'course-viewer' | 'playground' | 
 function AppContent() {
   const { user: dbUser, isAuthenticated, balance } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState<string[]>(['course_001', 'course_004']);
   const [currentCourse, setCurrentCourse] = useState<Course | null>(null);
 
   // Convert database user to UI user format for components
@@ -44,7 +43,7 @@ function AppContent() {
   const handleEnroll = (courseId: string) => {
     const course = mockCourses.find(c => c.id === courseId);
     if (!course) return;
-    
+
     // Courses with full content available
     const coursesWithContent = [
       'course_001', // Hedera Fundamentals
@@ -89,7 +88,7 @@ function AppContent() {
       'course_043', // Advanced Wallet Security
       'course_044', // Earning Yield with Crypto
     ];
-    
+
     // Check if course has content available
     if (!coursesWithContent.includes(courseId)) {
       toast.info('Coming Soon!', {
@@ -97,15 +96,8 @@ function AppContent() {
       });
       return;
     }
-    
-    if (!enrolledCourseIds.includes(courseId)) {
-      setEnrolledCourseIds([...enrolledCourseIds, courseId]);
-      toast.success('Enrolled successfully!', {
-        description: 'Start learning now'
-      });
-    }
-    
-    // Open the course viewer
+
+    // Open the course viewer (enrollment is handled by CourseCatalog component)
     setCurrentCourse(course);
     setCurrentPage('course-viewer');
   };
@@ -120,8 +112,6 @@ function AppContent() {
     setCurrentCourse(null);
     setCurrentPage('courses');
   };
-
-  const enrolledCourses = mockCourses.filter(c => enrolledCourseIds.includes(c.id));
 
   return (
     <div className="min-h-screen">
@@ -138,7 +128,6 @@ function AppContent() {
         <ProtectedRoute onNavigate={handleNavigate}>
           <Dashboard
             user={user!}
-            enrolledCourses={enrolledCourses}
             badges={mockBadges}
             onCourseClick={handleEnroll}
             onNavigate={handleNavigate}
@@ -149,9 +138,7 @@ function AppContent() {
       {currentPage === 'courses' && (
         <ProtectedRoute onNavigate={handleNavigate}>
           <CourseCatalog
-            
             onEnroll={handleEnroll}
-            enrolledCourseIds={enrolledCourseIds}
           />
         </ProtectedRoute>
       )}
