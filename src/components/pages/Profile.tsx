@@ -1,29 +1,44 @@
 import React, { useState } from 'react';
-import { User, Badge as BadgeType } from '../../lib/mockData';
-import { calculateLevelProgress, getRarityColor } from '../../lib/utils';
-import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet } from 'lucide-react';
+import { format } from 'date-fns';
+import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { useWallet } from '../../contexts/WalletContext';
+import { useUserStats } from '../../hooks/useStats';
+import { useCompletedCourses } from '../../hooks/useEnrollment';
+import { useUserBadgesWithStatus } from '../../hooks/useBadges';
+import { ProgressChart } from '../dashboard/ProgressChart';
+import { StreakCalendar } from '../dashboard/StreakCalendar';
 
-interface ProfileProps {
-  user: User;
-  badges: BadgeType[];
-}
+export function Profile() {
+  const { user } = useWallet();
+  const { data: stats, isLoading: statsLoading } = useUserStats(user?.id);
+  const { enrollments: completedCourses, isLoading: coursesLoading } = useCompletedCourses(user?.id);
+  const { data: allBadges, isLoading: badgesLoading } = useUserBadgesWithStatus(user?.id);
 
-export function Profile({ user, badges }: ProfileProps) {
-  const levelProgress = calculateLevelProgress(user.totalPoints);
-  const earnedBadges = badges.filter(b => b.earned);
-  const lockedBadges = badges.filter(b => !b.earned);
-  
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe] py-12">
+        <div className="container mx-auto px-4 max-w-5xl">
+          <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+            <p className="text-gray-600">Please connect your wallet to view your profile</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [editedUsername, setEditedUsername] = useState(user.username);
+  const [editedUsername, setEditedUsername] = useState(user.username || '');
   const [showBalance, setShowBalance] = useState(false);
+
+  const isLoading = statsLoading || coursesLoading || badgesLoading;
+  const memberSince = user.created_at ? format(new Date(user.created_at), 'MMMM yyyy') : 'Recently';
 
   const handleSaveUsername = () => {
     if (editedUsername.trim() === '') {
       toast.error('Username cannot be empty');
       return;
     }
-    // In a real app, this would save to backend
+    // TODO: Save to backend via API
     setIsEditingUsername(false);
     toast.success('Username updated successfully!');
   };
@@ -41,7 +56,7 @@ export function Profile({ user, badges }: ProfileProps) {
           <div className="flex flex-col md:flex-row items-center gap-8">
             {/* Avatar */}
             <div className="w-32 h-32 bg-gradient-to-br from-[#0084C7]/20 to-[#00a8e8]/20 rounded-full flex items-center justify-center shadow-[0_8px_32px_rgba(0,132,199,0.2),inset_-4px_-4px_16px_rgba(0,0,0,0.05),inset_4px_4px_16px_rgba(255,255,255,0.9)]">
-              <span className="text-6xl">{user.profilePicture}</span>
+              <span className="text-6xl">{stats?.avatarEmoji || user.avatar_emoji || '👤'}</span>
             </div>
 
             {/* User Info */}
@@ -72,7 +87,7 @@ export function Profile({ user, badges }: ProfileProps) {
                   </>
                 ) : (
                   <>
-                    <h1 className="mb-0">{editedUsername}</h1>
+                    <h1 className="mb-0">{stats?.username || editedUsername}</h1>
                     <button
                       onClick={() => setIsEditingUsername(true)}
                       className="p-2 bg-[#0084C7]/10 text-[#0084C7] rounded-xl hover:bg-[#0084C7]/20 transition-colors"
@@ -83,57 +98,33 @@ export function Profile({ user, badges }: ProfileProps) {
                 )}
               </div>
 
-              {/* Hedera Account ID */}
-              {user.hederaAccountId && (
-                <p className="text-gray-600 mb-2">Hedera ID: {user.hederaAccountId}</p>
-              )}
-
-              {/* Wallet Balance */}
-              {user.walletBalance !== undefined && (
-                <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
-                  <div className="flex items-center gap-2 bg-gradient-to-r from-[#0084C7]/10 to-[#00a8e8]/10 px-4 py-2 rounded-xl shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
-                    <Wallet className="w-5 h-5 text-[#0084C7]" />
-                    <span className="text-[#0084C7]">
-                      {showBalance ? `${user.walletBalance.toFixed(2)} HBAR` : '••••••'}
-                    </span>
-                    <button
-                      onClick={() => setShowBalance(!showBalance)}
-                      className="p-1 hover:bg-[#0084C7]/10 rounded-lg transition-colors"
-                    >
-                      {showBalance ? (
-                        <EyeOff className="w-4 h-4 text-[#0084C7]" />
-                      ) : (
-                        <Eye className="w-4 h-4 text-[#0084C7]" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Member Since */}
+              <p className="text-gray-600 mb-4">Member since {memberSince}</p>
               
               {/* Stats */}
               <div className="flex flex-wrap gap-6 justify-center md:justify-start">
                 <StatBadge
                   icon={<TrendingUp className="w-5 h-5" />}
                   label="Level"
-                  value={user.level.toString()}
+                  value={isLoading ? '...' : (stats?.currentLevel || user.current_level || 1).toString()}
                   color="blue"
                 />
                 <StatBadge
                   icon={<Award className="w-5 h-5" />}
-                  label="Points"
-                  value={user.totalPoints.toLocaleString()}
+                  label="Total XP"
+                  value={isLoading ? '...' : (stats?.totalXp || user.total_xp || 0).toLocaleString()}
                   color="yellow"
                 />
                 <StatBadge
                   icon={<Flame className="w-5 h-5" />}
                   label="Streak"
-                  value={`${user.streakDays} days`}
+                  value={isLoading ? '...' : `${stats?.currentStreak || user.current_streak || 0} days`}
                   color="orange"
                 />
                 <StatBadge
-                  icon={<Calendar className="w-5 h-5" />}
-                  label="Badges"
-                  value={earnedBadges.length.toString()}
+                  icon={<Trophy className="w-5 h-5" />}
+                  label="Rank"
+                  value={isLoading ? '...' : `#${stats?.leaderboardRank || 0}`}
                   color="purple"
                 />
               </div>
@@ -143,54 +134,117 @@ export function Profile({ user, badges }: ProfileProps) {
           {/* Level Progress */}
           <div className="mt-8 pt-8 border-t border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-gray-700">Level {user.level} Progress</span>
+              <span className="text-gray-700">
+                Level {stats?.currentLevel || user.current_level || 1} Progress
+              </span>
               <span className="text-[#0084C7]">
-                {levelProgress.currentLevelPoints}/{levelProgress.nextLevelPoints} pts
+                {isLoading ? 'Loading...' : `${stats?.xpToNextLevel || 0} XP to next level`}
               </span>
             </div>
             <div className="h-4 bg-gray-100 rounded-full overflow-hidden shadow-[inset_0_2px_8px_rgba(0,0,0,0.1)]">
-              <div 
+              <div
                 className="h-full bg-gradient-to-r from-[#0084C7] to-[#00a8e8] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(0,132,199,0.5)]"
-                style={{ width: `${levelProgress.percentage}%` }}
+                style={{ width: `${stats?.levelProgress || 0}%` }}
               />
             </div>
-            <p className="text-sm text-gray-600 mt-2 text-center">
-              {levelProgress.nextLevelPoints - levelProgress.currentLevelPoints} points to Level {user.level + 1}
-            </p>
           </div>
         </div>
 
-        {/* Earned Badges */}
+        {/* Achievements & Badges */}
         <div className="mb-8">
-          <h2 className="mb-6">Earned Badges ({earnedBadges.length})</h2>
-          {earnedBadges.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {earnedBadges.map((badge) => (
-                <BadgeCard key={badge.id} badge={badge} />
-              ))}
+          {isLoading ? (
+            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <p className="text-gray-600">Loading badges...</p>
             </div>
+          ) : allBadges && allBadges.length > 0 ? (
+            <>
+              {/* Earned Badges Section */}
+              {allBadges.filter(b => b.earned).length > 0 && (
+                <div className="mb-8">
+                  <h2 className="mb-6">
+                    Earned Badges ({allBadges.filter(b => b.earned).length})
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {allBadges.filter(b => b.earned).map((badge) => (
+                      <BadgeCard key={badge.id} badge={badge} earned={true} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Locked Badges Section */}
+              {allBadges.filter(b => !b.earned).length > 0 && (
+                <div>
+                  <h2 className="mb-6">
+                    Locked Badges ({allBadges.filter(b => !b.earned).length})
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {allBadges.filter(b => !b.earned).map((badge) => (
+                      <BadgeCard key={badge.id} badge={badge} earned={false} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
               <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
                 <Award className="w-10 h-10 text-gray-400" />
               </div>
-              <h3 className="mb-2">No badges yet</h3>
-              <p className="text-gray-600">Complete lessons and challenges to earn your first badge!</p>
+              <h3 className="mb-2">No badges available</h3>
+              <p className="text-gray-600">Badges will appear as you progress!</p>
             </div>
           )}
         </div>
 
-        {/* Locked Badges */}
-        {lockedBadges.length > 0 && (
-          <div>
-            <h2 className="mb-6">Locked Badges ({lockedBadges.length})</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {lockedBadges.map((badge) => (
-                <BadgeCard key={badge.id} badge={badge} locked />
-              ))}
+        {/* Completed Courses / Certificates */}
+        <div className="mb-8">
+          <h2 className="mb-6">
+            Certificates & Completed Courses ({completedCourses?.length || 0})
+          </h2>
+          {isLoading ? (
+            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <p className="text-gray-600">Loading courses...</p>
             </div>
-          </div>
-        )}
+          ) : completedCourses && completedCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {completedCourses.map((enrollment) => {
+                if (!enrollment.course) return null;
+
+                return (
+                  <div
+                    key={enrollment.id}
+                    className="bg-white rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.9)] transition-all hover:-translate-y-1"
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                      <Trophy className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h4 className="text-center mb-2">{enrollment.course.title}</h4>
+                    {enrollment.completed_at && (
+                      <p className="text-xs text-center text-gray-500">
+                        Completed {format(new Date(enrollment.completed_at), 'MMM d, yyyy')}
+                      </p>
+                    )}
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-center gap-2 text-sm text-green-600">
+                        <Award className="w-4 h-4" />
+                        <span>Certificate Earned</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                <Trophy className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="mb-2">No certificates yet</h3>
+              <p className="text-gray-600">Complete courses to earn certificates!</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -210,39 +264,100 @@ function StatBadge({ icon, label, value, color }: { icon: React.ReactNode; label
         {icon}
         <span className="text-sm opacity-80">{label}</span>
       </div>
-      <div className="text-xl">{value}</div>
+      <div className="text-xl font-bold">{value}</div>
     </div>
   );
 }
 
-function BadgeCard({ badge, locked = false }: { badge: BadgeType; locked?: boolean }) {
-  const rarityColor = getRarityColor(badge.rarity);
+function BadgeCard({ badge, earned }: { badge: any; earned: boolean }) {
+  const rarityColors = {
+    common: {
+      bg: 'from-gray-50 to-gray-100',
+      border: 'border-gray-200',
+      text: 'text-gray-700',
+      glow: 'shadow-[0_4px_16px_rgba(0,0,0,0.06)]'
+    },
+    rare: {
+      bg: 'from-blue-50 to-blue-100',
+      border: 'border-blue-200',
+      text: 'text-blue-700',
+      glow: 'shadow-[0_4px_16px_rgba(59,130,246,0.15)]'
+    },
+    epic: {
+      bg: 'from-purple-50 to-purple-100',
+      border: 'border-purple-200',
+      text: 'text-purple-700',
+      glow: 'shadow-[0_4px_16px_rgba(168,85,247,0.2)]'
+    },
+    legendary: {
+      bg: 'from-amber-50 to-amber-100',
+      border: 'border-amber-200',
+      text: 'text-amber-700',
+      glow: 'shadow-[0_4px_16px_rgba(251,191,36,0.25)]'
+    }
+  };
+
+  const colors = rarityColors[badge.rarity as keyof typeof rarityColors] || rarityColors.common;
+
+  // Locked badge styling
+  const lockedClass = !earned ? 'opacity-50 grayscale' : '';
+  const lockedBorder = !earned ? 'border-gray-300' : colors.border;
 
   return (
-    <div className={`bg-white rounded-3xl p-6 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.9)] transition-all hover:-translate-y-1 group ${locked ? 'opacity-50' : ''}`}>
-      <div className={`w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)] group-hover:scale-110 transition-transform ${locked ? 'grayscale' : ''}`}>
-        <span className="text-3xl">{badge.image}</span>
-      </div>
-      {locked && (
-        <div className="mb-2">
-          <span className="text-2xl">🔒</span>
+    <div
+      className={`bg-gradient-to-br ${colors.bg} border-2 ${lockedBorder} rounded-2xl p-4 ${earned ? colors.glow : 'shadow-[0_4px_16px_rgba(0,0,0,0.06)]'} ${earned ? 'hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] hover:-translate-y-1' : ''} transition-all relative ${lockedClass}`}
+    >
+      {/* Lock Icon for Locked Badges */}
+      {!earned && (
+        <div className="absolute top-2 right-2">
+          <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center shadow-lg">
+            <Lock className="w-4 h-4 text-white" />
+          </div>
         </div>
       )}
-      <h4 className="mb-2 text-sm">{badge.name}</h4>
-      <p className="text-xs text-gray-600 mb-3 line-clamp-2 min-h-[2.5rem]">
+
+      {/* Badge Icon */}
+      <div className="flex justify-center mb-3">
+        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+          <span className="text-4xl">{badge.icon_emoji}</span>
+        </div>
+      </div>
+
+      {/* Badge Name */}
+      <h4 className={`text-center mb-1 ${colors.text} font-bold`}>
+        {badge.name}
+      </h4>
+
+      {/* Badge Rarity */}
+      <p className={`text-xs text-center ${colors.text} opacity-80 mb-2 uppercase tracking-wide font-medium`}>
+        {badge.rarity}
+      </p>
+
+      {/* Badge Description */}
+      <p className="text-xs text-center text-gray-600 mb-3">
         {badge.description}
       </p>
-      <div 
-        className="text-xs capitalize"
-        style={{ color: rarityColor }}
-      >
-        {badge.rarity}
-      </div>
-      {badge.earnedAt && !locked && (
-        <div className="text-xs text-gray-500 mt-2">
-          Earned: {badge.earnedAt}
+
+      {/* Earned Date or Locked Status */}
+      {earned && badge.earned_at ? (
+        <div className="pt-3 border-t border-gray-200">
+          <p className="text-xs text-center text-gray-500">
+            Earned {format(new Date(badge.earned_at), 'MMM d, yyyy')}
+          </p>
+        </div>
+      ) : !earned && (
+        <div className="pt-3 border-t border-gray-200">
+          <p className="text-xs text-center text-gray-500 font-medium">
+            🔒 Locked
+          </p>
         </div>
       )}
+
+      {/* XP Reward Badge */}
+      <div className="mt-3 flex items-center justify-center gap-1">
+        <Award className="w-3 h-3 text-gray-500" />
+        <span className="text-xs text-gray-600 font-medium">+{badge.xp_reward} XP</span>
+      </div>
     </div>
   );
 }
