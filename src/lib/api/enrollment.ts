@@ -82,7 +82,7 @@ export async function enrollInCourse(
       .select('id')
       .eq('user_id', userId)
       .eq('course_id', courseId)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       return {
@@ -134,7 +134,7 @@ export async function enrollInCourse(
         certificate_minted_at: null,
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (enrollError) {
       throw new EnrollmentError(
@@ -156,7 +156,7 @@ export async function enrollInCourse(
         .from('courses')
         .select('enrollment_count')
         .eq('id', courseId)
-        .single();
+        .maybeSingle();
 
       if (courseData) {
         await supabase
@@ -256,13 +256,9 @@ export async function getEnrollmentStatus(
       .select('*')
       .eq('user_id', userId)
       .eq('course_id', courseId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // No rows returned - not enrolled
-        return null;
-      }
       throw new EnrollmentError(
         `Failed to fetch enrollment status: ${error.message}`,
         error.code,
@@ -482,12 +478,25 @@ export async function updateCurrentLesson(
   try {
     const now = new Date().toISOString();
 
+    // First check if user_progress exists and get started_at
+    const { data: existing } = await supabase
+      .from('user_progress')
+      .select('started_at')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .maybeSingle();
+
+    if (!existing) {
+      console.error('User progress not found');
+      return false;
+    }
+
     const { error } = await supabase
       .from('user_progress')
       .update({
         current_lesson_id: lessonId,
         last_accessed_at: now,
-        started_at: supabase.raw('COALESCE(started_at, NOW())'), // Set started_at if null
+        started_at: existing.started_at || now, // Set started_at if null
       })
       .eq('user_id', userId)
       .eq('course_id', courseId);

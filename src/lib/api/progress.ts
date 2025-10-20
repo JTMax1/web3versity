@@ -105,12 +105,12 @@ export async function markLessonComplete(
 ): Promise<LessonCompleteResult> {
   try {
     // Step 1: Check if already completed (idempotent)
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing } = await supabase
       .from('lesson_completions')
       .select('xp_earned')
       .eq('user_id', userId)
       .eq('lesson_id', lessonId)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       // Already completed, return without awarding XP again
@@ -119,13 +119,13 @@ export async function markLessonComplete(
         .select('progress_percentage')
         .eq('user_id', userId)
         .eq('course_id', courseId)
-        .single();
+        .maybeSingle();
 
       const { data: userData } = await supabase
         .from('users')
         .select('current_level')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       return {
         success: true,
@@ -135,24 +135,12 @@ export async function markLessonComplete(
       };
     }
 
-    // Ignore "no rows" error
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking existing completion:', checkError);
-      return {
-        success: false,
-        xpEarned: 0,
-        newLevel: 1,
-        courseComplete: false,
-        error: 'Failed to check completion status',
-      };
-    }
-
     // Step 2: Get lesson details
     const { data: lesson, error: lessonError } = await supabase
       .from('lessons')
       .select('lesson_type, completion_xp, perfect_score_xp')
       .eq('id', lessonId)
-      .single();
+      .maybeSingle();
 
     if (lessonError || !lesson) {
       console.error('Error fetching lesson:', lessonError);
@@ -223,7 +211,7 @@ export async function markLessonComplete(
         .from('users')
         .select('current_level')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       newLevel = userData?.current_level || 1;
     }
@@ -235,7 +223,7 @@ export async function markLessonComplete(
       .select('lessons_completed, total_lessons')
       .eq('user_id', userId)
       .eq('course_id', courseId)
-      .single();
+      .maybeSingle();
 
     if (progressData) {
       const newLessonsCompleted = progressData.lessons_completed + 1;
@@ -289,7 +277,7 @@ export async function markLessonComplete(
           .from('users')
           .select('current_level')
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
         newLevel = updatedUser?.current_level || newLevel;
       }
@@ -337,7 +325,7 @@ export async function getLessonCompletion(
       .select('*')
       .eq('user_id', userId)
       .eq('lesson_id', lessonId)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching lesson completion:', error);
@@ -370,7 +358,7 @@ export async function getCourseProgress(
       )
       .eq('user_id', userId)
       .eq('course_id', courseId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching course progress:', error);
@@ -428,12 +416,26 @@ export async function updateCurrentLesson(
   lessonId: string
 ): Promise<boolean> {
   try {
+    // First check if user_progress exists
+    const { data: existing } = await supabase
+      .from('user_progress')
+      .select('started_at')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .maybeSingle();
+
+    if (!existing) {
+      console.error('User progress not found');
+      return false;
+    }
+
+    // Update with started_at only if it's null
     const { error } = await supabase
       .from('user_progress')
       .update({
         current_lesson_id: lessonId,
         last_accessed_at: new Date().toISOString(),
-        started_at: supabase.raw('COALESCE(started_at, NOW())'),
+        started_at: existing.started_at || new Date().toISOString(),
       })
       .eq('user_id', userId)
       .eq('course_id', courseId);
