@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { type Course } from '../../lib/mockData';
 import { getLessonsForCourse } from '../../lib/courseContent';
 import { LessonViewer } from '../course/LessonViewer';
 import { Button } from '../ui/button';
 import { ArrowLeft, CheckCircle, Lock, Award } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
+import { useCompletedLessons, useCompleteLesson, useCourseProgress, useUpdateCurrentLesson } from '../../hooks/useLessonProgress';
+import { XPNotification } from '../XPNotification';
+import { LevelUpModal } from '../LevelUpModal';
+import { CourseCompleteModal } from '../CourseCompleteModal';
+import { useWallet } from '../../contexts/WalletContext';
 
 interface CourseViewerProps {
   course: Course;
@@ -13,10 +18,41 @@ interface CourseViewerProps {
 }
 
 export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerProps) {
+  const { user } = useWallet();
   const lessons = getLessonsForCourse(course.id);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
-  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [showSidebar, setShowSidebar] = useState(true);
+
+  // Lesson progress hooks
+  const { completedLessonIds, isLoading: loadingCompleted } = useCompletedLessons(user?.id, course.id);
+  const { complete, isCompleting } = useCompleteLesson();
+  const { progress: courseProgress } = useCourseProgress(user?.id, course.id);
+  const { updateLesson } = useUpdateCurrentLesson();
+
+  // Local state for completed lessons (sync with database)
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+
+  // Notification and modal state
+  const [xpNotification, setXPNotification] = useState<{ xp: number } | null>(null);
+  const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number }>({
+    show: false,
+    level: 1
+  });
+  const [showCourseCompleteModal, setShowCourseCompleteModal] = useState(false);
+
+  // Sync completed lessons from database
+  useEffect(() => {
+    if (completedLessonIds.length > 0) {
+      setCompletedLessons(new Set(completedLessonIds));
+    }
+  }, [completedLessonIds]);
+
+  // Update current lesson position when changed
+  useEffect(() => {
+    if (user?.id && lessons[currentLessonIndex]) {
+      updateLesson(user.id, course.id, lessons[currentLessonIndex].id);
+    }
+  }, [currentLessonIndex, user?.id, course.id, lessons, updateLesson]);
 
   if (lessons.length === 0) {
     return (
@@ -46,26 +82,70 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
   const progress = (completedLessons.size / lessons.length) * 100;
   const allCompleted = completedLessons.size === lessons.length;
 
-  const handleLessonComplete = () => {
-    const newCompleted = new Set(completedLessons);
-    newCompleted.add(currentLesson.id);
-    setCompletedLessons(newCompleted);
+  const handleLessonComplete = async (score?: number) => {
+    if (!user?.id || !currentLesson) {
+      toast.error('Please connect your wallet to save progress');
+      return;
+    }
 
-    toast.success('Lesson completed!', {
-      description: '+10 points earned'
-    });
-
-    // Auto-advance to next lesson
-    if (currentLessonIndex < lessons.length - 1) {
-      setTimeout(() => {
+    // Check if already completed
+    if (completedLessons.has(currentLesson.id)) {
+      toast.info('Lesson already completed!');
+      // Still advance to next lesson
+      if (currentLessonIndex < lessons.length - 1) {
         setCurrentLessonIndex(currentLessonIndex + 1);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 1000);
-    } else if (newCompleted.size === lessons.length) {
-      // All lessons completed
-      setTimeout(() => {
-        onCourseComplete();
-      }, 1500);
+      }
+      return;
+    }
+
+    try {
+      // Mark lesson complete in database
+      const result = await complete(user.id, currentLesson.id, course.id, score);
+
+      if (result.success) {
+        // Update local state
+        const newCompleted = new Set(completedLessons);
+        newCompleted.add(currentLesson.id);
+        setCompletedLessons(newCompleted);
+
+        // Show XP notification
+        if (result.xpEarned > 0) {
+          setXPNotification({ xp: result.xpEarned });
+          setTimeout(() => setXPNotification(null), 3000);
+        }
+
+        // Check for level up
+        if (user.current_level && result.newLevel > user.current_level) {
+          setTimeout(() => {
+            setLevelUpModal({ show: true, level: result.newLevel });
+          }, 500);
+        }
+
+        // Check for course complete
+        if (result.courseComplete) {
+          setTimeout(() => {
+            setShowCourseCompleteModal(true);
+          }, 1000);
+        } else {
+          // Auto-advance to next lesson
+          if (currentLessonIndex < lessons.length - 1) {
+            setTimeout(() => {
+              setCurrentLessonIndex(currentLessonIndex + 1);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 1000);
+          }
+        }
+
+        toast.success('Lesson completed!', {
+          description: `+${result.xpEarned} XP earned`
+        });
+      } else {
+        toast.error(result.error || 'Failed to complete lesson');
+      }
+    } catch (error) {
+      console.error('Error completing lesson:', error);
+      toast.error('Failed to save progress');
     }
   };
 
@@ -233,11 +313,38 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
               <LessonViewer
                 lesson={currentLesson}
                 onComplete={handleLessonComplete}
+                isCompleted={completedLessons.has(currentLesson.id)}
+                isCompleting={isCompleting}
               />
             )}
           </div>
         </div>
       </div>
+
+      {/* XP Notification */}
+      {xpNotification && (
+        <XPNotification
+          xp={xpNotification.xp}
+          onClose={() => setXPNotification(null)}
+        />
+      )}
+
+      {/* Level Up Modal */}
+      <LevelUpModal
+        isOpen={levelUpModal.show}
+        onClose={() => setLevelUpModal({ ...levelUpModal, show: false })}
+        newLevel={levelUpModal.level}
+      />
+
+      {/* Course Complete Modal */}
+      <CourseCompleteModal
+        isOpen={showCourseCompleteModal}
+        onClose={() => {
+          setShowCourseCompleteModal(false);
+          onCourseComplete();
+        }}
+        courseName={course.title}
+      />
     </div>
   );
 }

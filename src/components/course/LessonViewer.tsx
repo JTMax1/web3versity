@@ -7,10 +7,12 @@ import { PracticalLesson } from './lessons/PracticalLesson';
 
 interface LessonViewerProps {
   lesson: LessonContent;
-  onComplete: () => void;
+  onComplete: (score?: number) => void;
+  isCompleted?: boolean;
+  isCompleting?: boolean;
 }
 
-export function LessonViewer({ lesson, onComplete }: LessonViewerProps) {
+export function LessonViewer({ lesson, onComplete, isCompleted = false, isCompleting = false }: LessonViewerProps) {
   // Practical lessons have their own layout, don't wrap them
   if (lesson.type === 'practical') {
     return <PracticalLesson content={lesson.content} onComplete={onComplete} />;
@@ -41,13 +43,28 @@ export function LessonViewer({ lesson, onComplete }: LessonViewerProps) {
       {/* Lesson Content */}
       <div>
         {lesson.type === 'text' && (
-          <TextLesson content={lesson.content} onComplete={onComplete} />
+          <TextLesson
+            content={lesson.content}
+            onComplete={onComplete}
+            isCompleted={isCompleted}
+            isCompleting={isCompleting}
+          />
         )}
         {lesson.type === 'interactive' && (
-          <InteractiveLesson content={lesson.content} onComplete={onComplete} />
+          <InteractiveLesson
+            content={lesson.content}
+            onComplete={onComplete}
+            isCompleted={isCompleted}
+            isCompleting={isCompleting}
+          />
         )}
         {lesson.type === 'quiz' && (
-          <QuizLesson content={lesson.content} onComplete={onComplete} />
+          <QuizLesson
+            content={lesson.content}
+            onComplete={onComplete}
+            isCompleted={isCompleted}
+            isCompleting={isCompleting}
+          />
         )}
       </div>
     </div>

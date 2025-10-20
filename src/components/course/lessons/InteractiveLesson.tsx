@@ -19,10 +19,12 @@ import { ScamDetector } from '../interactive/ScamDetector';
 
 interface InteractiveLessonProps {
   content: any;
-  onComplete: () => void;
+  onComplete: (score?: number) => void;
+  isCompleted?: boolean;
+  isCompleting?: boolean;
 }
 
-export function InteractiveLesson({ content, onComplete }: InteractiveLessonProps) {
+export function InteractiveLesson({ content, onComplete, isCompleted = false, isCompleting = false }: InteractiveLessonProps) {
   const [hasInteracted, setHasInteracted] = useState(false);
 
   const renderInteractive = () => {
@@ -86,16 +88,20 @@ export function InteractiveLesson({ content, onComplete }: InteractiveLessonProp
       {/* Complete Button */}
       <div className="pt-6 border-t border-gray-200">
         <Button
-          onClick={onComplete}
-          disabled={!hasInteracted}
+          onClick={() => onComplete()}
+          disabled={!hasInteracted || isCompleted || isCompleting}
           className={`w-full py-6 rounded-2xl transition-all ${
-            hasInteracted
+            isCompleted
+              ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
+              : isCompleting
+              ? 'bg-gray-400 text-white cursor-wait'
+              : hasInteracted
               ? 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
               : 'bg-gray-200 text-gray-500 cursor-not-allowed'
           }`}
         >
           <CheckCircle className="w-5 h-5 mr-2" />
-          {hasInteracted ? 'Mark as Complete & Continue' : 'Complete the interactive activity'}
+          {isCompleted ? '✓ Completed' : isCompleting ? 'Saving...' : hasInteracted ? 'Mark as Complete & Continue' : 'Complete the interactive activity'}
         </Button>
       </div>
     </div>
