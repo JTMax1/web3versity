@@ -56,8 +56,22 @@ export function CourseFilters({ filters, onFilterChange, onClearFilters }: Cours
     onFilterChange({ ...filters, category });
   };
 
+  // ✅ Updated: toggles asc/desc for same sort type
   const handleSortChange = (sortBy: CourseSortBy) => {
-    onFilterChange({ ...filters, sortBy });
+    if (filters.sortBy === sortBy) {
+      // Toggle sort order when the same button is clicked
+      onFilterChange({
+        ...filters,
+        sortOrder: filters.sortOrder === 'asc' ? 'desc' : 'asc',
+      });
+    } else {
+      // When switching sort type, reset order depending on type
+      onFilterChange({
+        ...filters,
+        sortBy,
+        sortOrder: sortBy === 'title' ? 'asc' : 'desc',
+      });
+    }
   };
 
   return (
@@ -177,8 +191,16 @@ export function CourseFilters({ filters, onFilterChange, onClearFilters }: Cours
             onClick={() => handleSortChange('created_at')}
             color="blue"
           />
+
+          {/* ✅ Updated label: flips A-Z / Z-A */}
           <FilterButton
-            label="Title (A-Z)"
+            label={
+              filters.sortBy === 'title'
+                ? filters.sortOrder === 'asc'
+                  ? 'Title (A-Z)'
+                  : 'Title (Z-A)'
+                : 'Title (A-Z)'
+            }
             active={filters.sortBy === 'title'}
             onClick={() => handleSortChange('title')}
             color="blue"
@@ -188,6 +210,7 @@ export function CourseFilters({ filters, onFilterChange, onClearFilters }: Cours
     </div>
   );
 }
+
 
 // ============================================================================
 // Filter Button Component
