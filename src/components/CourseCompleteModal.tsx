@@ -25,7 +25,7 @@ export function CourseCompleteModal({
   courseId,
   onClaimCertificate,
 }: CourseCompleteModalProps) {
-  const { user } = useWallet();
+  const { user, connected, connect, account } = useWallet();
   const [showConfetti, setShowConfetti] = useState(false);
 
   // Certificate claiming state
@@ -55,8 +55,9 @@ export function CourseCompleteModal({
   }, [isOpen, user, courseId]);
 
   const handleClaimCertificate = async () => {
+    // Check if user exists
     if (!user || !courseId) {
-      setCertificateError('Please connect your wallet first');
+      setCertificateError('User not authenticated');
       return;
     }
 
@@ -64,6 +65,14 @@ export function CourseCompleteModal({
     setCertificateError(null);
 
     try {
+      // Check if wallet is connected, if not connect it first
+      if (!connected || !account) {
+        console.log('🔗 Connecting wallet for certificate claiming...');
+        await connect();
+        console.log('✅ Wallet connected, proceeding with certificate claim');
+      }
+
+      // Proceed with claiming certificate
       console.log('🎓 Claiming certificate for course:', courseId);
       const result = await claimCertificate(user.id, courseId);
 
@@ -79,7 +88,17 @@ export function CourseCompleteModal({
       }
     } catch (error) {
       console.error('Error claiming certificate:', error);
-      setCertificateError(error instanceof Error ? error.message : 'Failed to claim certificate');
+
+      // Better error messages
+      if (error instanceof Error) {
+        if (error.message.includes('User rejected') || error.message.includes('User denied')) {
+          setCertificateError('Wallet connection cancelled. Please try again.');
+        } else {
+          setCertificateError(error.message);
+        }
+      } else {
+        setCertificateError('Failed to claim certificate');
+      }
     } finally {
       setCertificateClaiming(false);
     }
@@ -167,12 +186,12 @@ export function CourseCompleteModal({
                   {certificateClaiming ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Minting NFT...
+                      {connected ? 'Minting NFT...' : 'Connecting Wallet...'}
                     </>
                   ) : (
                     <>
                       <Download className="w-5 h-5" />
-                      Claim Certificate NFT
+                      {connected ? 'Claim Certificate NFT' : 'Connect Wallet & Claim NFT'}
                     </>
                   )}
                 </button>
