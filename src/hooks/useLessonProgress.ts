@@ -51,14 +51,17 @@ export interface UseCourseProgressResult {
  */
 export function useCourseProgress(
   userId: string | null | undefined,
-  courseId: string
+  courseId: string,
+  options?: { enabled?: boolean }
 ): UseCourseProgressResult {
   const query = useQuery({
     queryKey: progressKeys.courseProgress(userId || '', courseId),
     queryFn: () => getCourseProgress(userId!, courseId),
-    enabled: !!userId && !!courseId,
-    staleTime: 1 * 60 * 1000, // 1 minute - progress changes frequently
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    enabled: (options?.enabled ?? true) && !!userId && !!courseId,
+    staleTime: 5 * 60 * 1000, // 5 minutes (reduced frequency)
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: 1, // Only retry once on failure
+    retryDelay: 1000, // Wait 1 second before retry
   });
 
   return {
@@ -235,8 +238,6 @@ export interface UseUpdateCurrentLessonResult {
  * @returns Mutation functions and state
  */
 export function useUpdateCurrentLesson(): UseUpdateCurrentLessonResult {
-  const queryClient = useQueryClient();
-
   const mutation = useMutation({
     mutationFn: ({
       userId,
@@ -247,12 +248,9 @@ export function useUpdateCurrentLesson(): UseUpdateCurrentLessonResult {
       courseId: string;
       lessonId: string;
     }) => updateCurrentLesson(userId, courseId, lessonId),
-    onSuccess: (_, variables) => {
-      // Invalidate course progress to reflect new current lesson
-      queryClient.invalidateQueries({
-        queryKey: progressKeys.courseProgress(variables.userId, variables.courseId),
-      });
-    },
+    // No need to invalidate queries - updating current lesson position
+    // is idempotent and doesn't affect progress data that needs refetching.
+    // The UI already knows the current lesson from local state.
   });
 
   return {

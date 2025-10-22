@@ -104,15 +104,22 @@ export async function markLessonComplete(
   timeSpentSeconds?: number
 ): Promise<LessonCompleteResult> {
   try {
+    console.log('[markLessonComplete] Starting:', { userId, lessonId, courseId, score });
+
     // Step 1: Check if already completed (idempotent)
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('lesson_completions')
       .select('xp_earned')
       .eq('user_id', userId)
       .eq('lesson_id', lessonId)
       .maybeSingle();
 
+    if (existingError) {
+      console.error('[markLessonComplete] Error checking existing completion:', existingError);
+    }
+
     if (existing) {
+      console.log('[markLessonComplete] Lesson already completed, returning cached result');
       // Already completed, return without awarding XP again
       const { data: currentProgress } = await supabase
         .from('user_progress')
@@ -135,21 +142,34 @@ export async function markLessonComplete(
       };
     }
 
-    // Step 2: Get lesson details
+    // Step 2: Get lesson details and validate it belongs to this course
     const { data: lesson, error: lessonError } = await supabase
       .from('lessons')
-      .select('lesson_type, completion_xp, perfect_score_xp')
+      .select('lesson_type, completion_xp, perfect_score_xp, course_id')
       .eq('id', lessonId)
       .maybeSingle();
 
     if (lessonError || !lesson) {
-      console.error('Error fetching lesson:', lessonError);
+      console.error('[markLessonComplete] Error fetching lesson:', lessonError);
       return {
         success: false,
         xpEarned: 0,
         newLevel: 1,
         courseComplete: false,
         error: 'Lesson not found',
+      };
+    }
+
+    // Validate lesson belongs to the specified course
+    const lessonCourseId = (lesson as any).course_id;
+    if (lessonCourseId !== courseId) {
+      console.error(`[markLessonComplete] Lesson ${lessonId} does not belong to course ${courseId}, it belongs to ${lessonCourseId}`);
+      return {
+        success: false,
+        xpEarned: 0,
+        newLevel: 1,
+        courseComplete: false,
+        error: 'Lesson does not belong to this course',
       };
     }
 
@@ -179,122 +199,242 @@ export async function markLessonComplete(
       xp_earned: xpEarned,
     };
 
+    console.log('[markLessonComplete] Inserting lesson completion:', completionData);
     const { error: insertError } = await supabase
       .from('lesson_completions')
       .insert(completionData);
 
     if (insertError) {
-      console.error('Error inserting lesson completion:', insertError);
+      console.error('[markLessonComplete] Error inserting lesson completion:', insertError);
       return {
         success: false,
         xpEarned: 0,
         newLevel: 1,
         courseComplete: false,
-        error: 'Failed to save completion',
+        error: `Failed to save completion: ${insertError.message}`,
+      };
+    }
+    console.log('[markLessonComplete] Lesson completion inserted successfully');
+
+    // Step 4: Award XP and update level
+    let newLevel = 1;
+    if (xpEarned > 0) {
+      try {
+        // Try using award_xp function first
+        const { error: xpError } = await supabase.rpc('award_xp', {
+          p_user_id: userId,
+          p_xp_amount: xpEarned,
+        });
+
+        if (xpError) {
+          console.warn('award_xp function failed, using direct update:', xpError);
+
+          // Fallback: Direct SQL update
+          const { data: currentUser } = await supabase
+            .from('users')
+            .select('total_xp')
+            .eq('id', userId)
+            .maybeSingle();
+
+          if (currentUser) {
+            const newTotalXP = currentUser.total_xp + xpEarned;
+            const calculatedLevel = Math.min(Math.floor(Math.sqrt(newTotalXP / 100)), 100);
+
+            // Get current lessons_completed count
+            const { data: userData } = await supabase
+              .from('users')
+              .select('lessons_completed')
+              .eq('id', userId)
+              .maybeSingle();
+
+            await supabase
+              .from('users')
+              .update({
+                total_xp: newTotalXP,
+                current_level: calculatedLevel,
+                lessons_completed: (userData?.lessons_completed || 0) + 1,
+              })
+              .eq('id', userId);
+
+            newLevel = calculatedLevel;
+          }
+        } else {
+          // Get updated level after award_xp
+          const { data: userData } = await supabase
+            .from('users')
+            .select('current_level')
+            .eq('id', userId)
+            .maybeSingle();
+
+          newLevel = userData?.current_level || 1;
+        }
+      } catch (err) {
+        console.error('Error in XP award process:', err);
+      }
+    }
+
+    // Step 5: Update user_progress
+    // Get current progress with retry logic (handles race conditions)
+    console.log('[markLessonComplete] Fetching user progress for course:', courseId);
+
+    let progressData = null;
+    let progressError = null;
+    const maxRetries = 3;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const result = await supabase
+        .from('user_progress')
+        .select('lessons_completed, total_lessons')
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+      progressData = result.data;
+      progressError = result.error;
+
+      if (progressData) {
+        console.log(`[markLessonComplete] Found user progress on attempt ${attempt + 1}`);
+        break;
+      }
+
+      if (progressError) {
+        console.error('[markLessonComplete] Error fetching user progress:', progressError);
+        break;
+      }
+
+      // No data and no error - record doesn't exist yet, retry with backoff
+      if (attempt < maxRetries - 1) {
+        const backoffMs = Math.pow(2, attempt) * 100; // 100ms, 200ms, 400ms
+        console.log(`[markLessonComplete] User progress not found, retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
+      }
+    }
+
+    if (progressError) {
+      return {
+        success: false,
+        xpEarned: 0,
+        newLevel: 1,
+        courseComplete: false,
+        error: 'Failed to fetch user progress',
       };
     }
 
-    // Step 4: Award XP using database function
-    let newLevel = 1;
-    if (xpEarned > 0) {
-      const { error: xpError } = await supabase.rpc('award_xp', {
-        p_user_id: userId,
-        p_xp_amount: xpEarned,
-      });
+    if (!progressData) {
+      console.error('[markLessonComplete] No user_progress record found after retries! User may not be enrolled.');
+      return {
+        success: false,
+        xpEarned: 0,
+        newLevel: 1,
+        courseComplete: false,
+        error: 'User not enrolled in course. Please enroll first.',
+      };
+    }
 
-      if (xpError) {
-        console.error('Error awarding XP:', xpError);
+    // Validate total_lessons to prevent division by zero
+    if (!progressData.total_lessons || progressData.total_lessons === 0) {
+      console.error('[markLessonComplete] Course has 0 lessons!');
+      return {
+        success: false,
+        xpEarned: 0,
+        newLevel: 1,
+        courseComplete: false,
+        error: 'Course has no lessons',
+      };
+    }
+
+    console.log('[markLessonComplete] Current progress:', progressData);
+
+    const newLessonsCompleted = progressData.lessons_completed + 1;
+    const newProgressPercentage = Math.round(
+      (newLessonsCompleted / progressData.total_lessons) * 100
+    );
+
+    console.log('[markLessonComplete] Updating progress:', { newLessonsCompleted, newProgressPercentage });
+
+    // Update progress
+    const { error: updateError } = await supabase
+      .from('user_progress')
+      .update({
+        lessons_completed: newLessonsCompleted,
+        progress_percentage: newProgressPercentage,
+        last_accessed_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('course_id', courseId);
+
+    if (updateError) {
+      console.error('[markLessonComplete] Error updating user progress:', updateError);
+      return {
+        success: false,
+        xpEarned: 0,
+        newLevel: 1,
+        courseComplete: false,
+        error: 'Failed to update progress',
+      };
+    }
+
+    // Step 6: Check if course is complete
+    const courseComplete = newProgressPercentage === 100;
+
+    // Step 7: Award course completion bonus
+    if (courseComplete) {
+      console.log('[markLessonComplete] Course completed! Awarding bonus XP');
+      // Mark course as complete
+      await supabase
+        .from('user_progress')
+        .update({
+          completed_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('course_id', courseId);
+
+      // Award 100 XP bonus
+      try {
+        const { error: bonusError } = await supabase.rpc('award_xp', {
+          p_user_id: userId,
+          p_xp_amount: 100,
+        });
+
+        if (bonusError) {
+          console.warn('Bonus XP award failed:', bonusError);
+        }
+      } catch (err) {
+        console.error('Error awarding bonus XP:', err);
       }
 
-      // Get updated level
-      const { data: userData } = await supabase
+      // Increment user's courses_completed count
+      const { data: currentUserData } = await supabase
+        .from('users')
+        .select('courses_completed')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (currentUserData) {
+        await supabase
+          .from('users')
+          .update({
+            courses_completed: currentUserData.courses_completed + 1,
+          })
+          .eq('id', userId);
+      }
+
+      // Get updated level after bonus
+      const { data: updatedUser } = await supabase
         .from('users')
         .select('current_level')
         .eq('id', userId)
         .maybeSingle();
 
-      newLevel = userData?.current_level || 1;
+      newLevel = updatedUser?.current_level || newLevel;
     }
 
-    // Step 5: Update user_progress
-    // Get current progress
-    const { data: progressData } = await supabase
-      .from('user_progress')
-      .select('lessons_completed, total_lessons')
-      .eq('user_id', userId)
-      .eq('course_id', courseId)
-      .maybeSingle();
-
-    if (progressData) {
-      const newLessonsCompleted = progressData.lessons_completed + 1;
-      const newProgressPercentage = Math.round(
-        (newLessonsCompleted / progressData.total_lessons) * 100
-      );
-
-      // Update progress
-      await supabase
-        .from('user_progress')
-        .update({
-          lessons_completed: newLessonsCompleted,
-          progress_percentage: newProgressPercentage,
-          last_accessed_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-        .eq('course_id', courseId);
-
-      // Step 6: Check if course is complete
-      const courseComplete = newProgressPercentage === 100;
-
-      // Step 7: Award course completion bonus
-      if (courseComplete) {
-        // Mark course as complete
-        await supabase
-          .from('user_progress')
-          .update({
-            completed_at: new Date().toISOString(),
-          })
-          .eq('user_id', userId)
-          .eq('course_id', courseId);
-
-        // Award 100 XP bonus
-        await supabase.rpc('award_xp', {
-          p_user_id: userId,
-          p_xp_amount: 100,
-        });
-
-        // Increment user's courses_completed count
-        await supabase.rpc('sql', {
-          query: `
-            UPDATE users
-            SET courses_completed = courses_completed + 1
-            WHERE id = $1
-          `,
-          params: [userId],
-        });
-
-        // Get updated level after bonus
-        const { data: updatedUser } = await supabase
-          .from('users')
-          .select('current_level')
-          .eq('id', userId)
-          .maybeSingle();
-
-        newLevel = updatedUser?.current_level || newLevel;
-      }
-
-      return {
-        success: true,
-        xpEarned: xpEarned + (courseComplete ? 100 : 0),
-        newLevel,
-        courseComplete,
-      };
-    }
-
+    console.log('[markLessonComplete] Success!', { xpEarned, newLevel, courseComplete });
     return {
       success: true,
-      xpEarned,
+      xpEarned: xpEarned + (courseComplete ? 100 : 0),
       newLevel,
-      courseComplete: false,
+      courseComplete,
     };
   } catch (error) {
     console.error('Unexpected error marking lesson complete:', error);
@@ -340,7 +480,7 @@ export async function getLessonCompletion(
 }
 
 /**
- * Get course progress for a user
+ * Get course progress for a user (with retry logic for flaky connections)
  *
  * @param userId - User UUID
  * @param courseId - Course ID
@@ -350,26 +490,52 @@ export async function getCourseProgress(
   userId: string,
   courseId: string
 ): Promise<CourseProgressData | null> {
-  try {
-    const { data, error } = await supabase
-      .from('user_progress')
-      .select(
-        'progress_percentage, lessons_completed, total_lessons, current_lesson_id, completed_at'
-      )
-      .eq('user_id', userId)
-      .eq('course_id', courseId)
-      .maybeSingle();
+  const maxRetries = 2;
+  let lastError = null;
 
-    if (error) {
-      console.error('Error fetching course progress:', error);
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from('user_progress')
+        .select(
+          'progress_percentage, lessons_completed, total_lessons, current_lesson_id, completed_at'
+        )
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle();
+
+      if (error) {
+        lastError = error;
+        // Only retry on network/connection errors
+        if (error.message?.includes('NetworkError') ||
+            error.message?.includes('Content-Length') ||
+            error.message?.includes('fetch')) {
+          if (attempt < maxRetries - 1) {
+            console.warn(`[getCourseProgress] Network error, retrying (${attempt + 1}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            continue;
+          }
+        }
+        console.error('Error fetching course progress:', error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries - 1) {
+        console.warn(`[getCourseProgress] Exception caught, retrying (${attempt + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        continue;
+      }
+      console.error('Unexpected error fetching course progress:', error);
       return null;
     }
-
-    return data;
-  } catch (error) {
-    console.error('Unexpected error fetching course progress:', error);
-    return null;
   }
+
+  // If we get here, all retries failed
+  console.error('[getCourseProgress] All retries exhausted');
+  return null;
 }
 
 /**
@@ -416,17 +582,34 @@ export async function updateCurrentLesson(
   lessonId: string
 ): Promise<boolean> {
   try {
-    // First check if user_progress exists
-    const { data: existing } = await supabase
+    // First check if user_progress exists and get current lesson
+    const { data: existing, error: fetchError } = await supabase
       .from('user_progress')
-      .select('started_at')
+      .select('started_at, current_lesson_id')
       .eq('user_id', userId)
       .eq('course_id', courseId)
       .maybeSingle();
 
-    if (!existing) {
-      console.error('User progress not found');
+    if (fetchError) {
+      console.error('Error fetching user progress:', fetchError);
+      // Check if this is a network/CORS error
+      if (fetchError.message?.includes('NetworkError') || fetchError.message?.includes('CORS')) {
+        console.error('⚠️ SUPABASE CONNECTION ISSUE: Check if project is paused or CORS is misconfigured');
+        console.error('⚠️ Go to: https://supabase.com/dashboard/project/xlbnfetefknsqsdbngvp');
+      }
       return false;
+    }
+
+    if (!existing) {
+      console.error('User progress not found - user may not be enrolled in this course');
+      console.error(`User: ${userId}, Course: ${courseId}`);
+      return false;
+    }
+
+    // IDEMPOTENT: Only update if lesson has actually changed
+    if (existing.current_lesson_id === lessonId) {
+      // Lesson hasn't changed, no need to update database
+      return true;
     }
 
     // Update with started_at only if it's null
@@ -448,6 +631,12 @@ export async function updateCurrentLesson(
     return true;
   } catch (error) {
     console.error('Unexpected error updating current lesson:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('⚠️ NETWORK ERROR: Cannot connect to Supabase. Check:');
+      console.error('  1. Is your Supabase project paused? (https://supabase.com/dashboard)');
+      console.error('  2. Is your internet connection working?');
+      console.error('  3. Are you behind a firewall blocking Supabase?');
+    }
     return false;
   }
 }
