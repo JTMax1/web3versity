@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from './ui/badge';
 import { type ComponentCourse as Course } from '../lib/adapters/courseAdapter';
 import { getDifficultyColor } from '../lib/utils';
-import { Star, Clock, Users, Lock, CheckCircle } from 'lucide-react';
+import { Star, Clock, Users, Lock, CheckCircle, Loader2 } from 'lucide-react';
 
 interface CourseCardProps {
   course: Course;
@@ -11,6 +11,7 @@ interface CourseCardProps {
   progress?: number;
   isLocked?: boolean;
   isCompleted?: boolean;
+  isEnrolling?: boolean;
   onLockedClick?: (courseId: string) => void;
 }
 
@@ -21,6 +22,7 @@ export function CourseCard({
   progress,
   isLocked,
   isCompleted,
+  isEnrolling = false,
   onLockedClick
 }: CourseCardProps) {
   const difficultyColor = getDifficultyColor(course.difficulty);
@@ -191,20 +193,24 @@ export function CourseCard({
       {/* Action Button */}
       <button
         onClick={handleClick}
-        disabled={!hasContent && !enrolled && !isLocked}
-        className={`w-full py-3 rounded-2xl text-center transition-all duration-300 ${
+        disabled={(!hasContent && !enrolled && !isLocked) || isEnrolling}
+        className={`w-full py-3 rounded-2xl text-center transition-all duration-200 flex items-center justify-center gap-2 ${
           !hasContent && !enrolled && !isLocked
             ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+            : isEnrolling
+            ? 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] cursor-wait'
             : isCompleted
-            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-[0_4px_16px_rgba(34,197,94,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(34,197,94,0.4),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
+            ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-[0_4px_16px_rgba(34,197,94,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(34,197,94,0.4)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(34,197,94,0.3),inset_2px_2px_8px_rgba(0,0,0,0.2)]'
             : isLocked
-            ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_4px_16px_rgba(249,115,22,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(249,115,22,0.4),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
+            ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-[0_4px_16px_rgba(249,115,22,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(249,115,22,0.4)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(249,115,22,0.3),inset_2px_2px_8px_rgba(0,0,0,0.2)]'
             : enrolled
-            ? 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(0,132,199,0.4),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
-            : 'bg-white text-[#0084C7] shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)] hover:shadow-[0_6px_24px_rgba(0,132,199,0.15),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]'
+            ? 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(0,132,199,0.4)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(0,132,199,0.3),inset_2px_2px_8px_rgba(0,0,0,0.2)]'
+            : 'bg-white text-[#0084C7] shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)] hover:shadow-[0_6px_24px_rgba(0,132,199,0.15)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_2px_2px_8px_rgba(0,0,0,0.1)]'
         }`}
       >
-        {!hasContent && !isLocked && !enrolled ? 'Coming Soon'
+        {isEnrolling && <Loader2 className="w-4 h-4 animate-spin" />}
+        {isEnrolling ? 'Enrolling...'
+         : !hasContent && !isLocked && !enrolled ? 'Coming Soon'
          : isCompleted ? 'Review Course'
          : isLocked ? 'View Prerequisites'
          : enrolled ? 'Continue Learning'

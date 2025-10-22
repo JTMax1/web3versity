@@ -50,6 +50,9 @@ export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
     prerequisites: Course[];
   }>({ isOpen: false, courseName: '', prerequisites: [] });
 
+  // Track which course is currently being enrolled
+  const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
+
   // Hooks for enrollment data
   const { enroll, isEnrolling } = useEnroll();
   const { enrolledIds, isLoading: enrolledLoading } = useEnrolledCourseIds(user?.id);
@@ -109,6 +112,9 @@ export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
         return;
       }
 
+      // Set enrolling state for this specific course
+      setEnrollingCourseId(courseId);
+
       // Enroll
       const result = await enroll(user.id, courseId);
 
@@ -122,6 +128,9 @@ export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
     } catch (error) {
       console.error('Enrollment error:', error);
       toast.error('Failed to enroll in course');
+    } finally {
+      // Clear enrolling state
+      setEnrollingCourseId(null);
     }
   };
 
@@ -207,6 +216,7 @@ export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
                   enrolled={isEnrolled}
                   isCompleted={isCompleted}
                   isLocked={isLocked}
+                  isEnrolling={enrollingCourseId === course.id}
                   onLockedClick={handleEnrollClick}
                 />
               );
