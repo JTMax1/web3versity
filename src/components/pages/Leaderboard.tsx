@@ -206,16 +206,16 @@ export function Leaderboard() {
                     <div>
                       <p className="text-sm text-gray-600">XP</p>
                       <p className="text-2xl font-bold text-gray-900">
-                        {userRank.total_xp.toLocaleString()}
+                        {(userRank.total_xp || 0).toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Users Above</p>
-                      <p className="text-2xl font-bold text-gray-900">{userRank.users_above}</p>
+                      <p className="text-2xl font-bold text-gray-900">{userRank.users_above || 0}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Percentile</p>
-                      <p className="text-2xl font-bold text-green-600">Top {userRank.percentile}%</p>
+                      <p className="text-2xl font-bold text-green-600">Top {userRank.percentile || 0}%</p>
                     </div>
                   </div>
 

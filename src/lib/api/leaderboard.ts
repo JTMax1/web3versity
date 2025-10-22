@@ -74,9 +74,9 @@ export async function getLeaderboard(
           users!inner (
             username,
             avatar_emoji,
-            level,
+            current_level,
             current_streak,
-            last_active_at
+            last_login_at
           )
         `)
         .order('all_time_rank', { ascending: true })
@@ -89,12 +89,12 @@ export async function getLeaderboard(
         user_id: entry.user_id,
         username: entry.users.username,
         avatar_emoji: entry.users.avatar_emoji || '👤',
-        level: entry.users.level,
+        level: entry.users.current_level,
         total_xp: entry.total_xp,
         lessons_completed: entry.lessons_completed,
         courses_completed: entry.courses_completed,
         streak_days: entry.users.current_streak || 0,
-        last_active: entry.users.last_active_at || new Date().toISOString(),
+        last_active: entry.users.last_login_at || new Date().toISOString(),
       }));
     } else {
       // Calculate weekly or monthly rankings
@@ -150,9 +150,24 @@ export async function getUserRank(
         .from('leaderboard_cache')
         .select('all_time_rank, total_xp')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle(); // Use maybeSingle() instead of single() to handle missing rows
 
-      if (error || !data) return null;
+      // If no cache entry, user hasn't earned any XP yet
+      if (error) {
+        console.error('Error fetching user rank from cache:', error);
+        return null;
+      }
+
+      if (!data) {
+        // User not in cache - likely no XP earned yet
+        return {
+          rank: 0,
+          total_xp: 0,
+          users_above: 0,
+          users_below: 0,
+          percentile: 0,
+        };
+      }
 
       // Get total users for percentile
       const { count } = await supabase
@@ -160,11 +175,11 @@ export async function getUserRank(
         .select('*', { count: 'exact', head: true });
 
       return {
-        rank: data.all_time_rank,
-        total_xp: data.total_xp,
-        users_above: data.all_time_rank - 1,
-        users_below: (count || 0) - data.all_time_rank,
-        percentile: count ? Math.round((1 - data.all_time_rank / count) * 100) : 0,
+        rank: data.all_time_rank || 0,
+        total_xp: data.total_xp || 0,
+        users_above: (data.all_time_rank || 1) - 1,
+        users_below: (count || 0) - (data.all_time_rank || 0),
+        percentile: count ? Math.round((1 - (data.all_time_rank || 0) / count) * 100) : 0,
       };
     } else {
       // Calculate from recent activity
@@ -173,14 +188,19 @@ export async function getUserRank(
         { p_user_id: userId }
       );
 
-      if (error || !data) return null;
+      if (error || !data || data.length === 0) return null;
+
+      // RPC functions return arrays, get first element
+      const rankData = Array.isArray(data) ? data[0] : data;
+
+      if (!rankData || !rankData.rank) return null;
 
       return {
-        rank: data.rank,
-        total_xp: data.period_xp,
-        users_above: data.rank - 1,
-        users_below: data.total_users - data.rank,
-        percentile: data.total_users ? Math.round((1 - data.rank / data.total_users) * 100) : 0,
+        rank: rankData.rank,
+        total_xp: rankData.period_xp || 0,
+        users_above: (rankData.rank || 1) - 1,
+        users_below: (rankData.total_users || 0) - (rankData.rank || 0),
+        percentile: rankData.total_users ? Math.round((1 - rankData.rank / rankData.total_users) * 100) : 0,
       };
     }
   } catch (error) {
@@ -218,9 +238,9 @@ export async function getLeaderboardContext(
           users!inner (
             username,
             avatar_emoji,
-            level,
+            current_level,
             current_streak,
-            last_active_at
+            last_login_at
           )
         `)
         .gte('all_time_rank', startRank)
@@ -234,12 +254,12 @@ export async function getLeaderboardContext(
         user_id: entry.user_id,
         username: entry.users.username,
         avatar_emoji: entry.users.avatar_emoji || '👤',
-        level: entry.users.level,
+        level: entry.users.current_level,
         total_xp: entry.total_xp,
         lessons_completed: entry.lessons_completed,
         courses_completed: entry.courses_completed,
         streak_days: entry.users.current_streak || 0,
-        last_active: entry.users.last_active_at || new Date().toISOString(),
+        last_active: entry.users.last_login_at || new Date().toISOString(),
       }));
     } else {
       // For weekly/monthly, get full leaderboard and slice
@@ -273,12 +293,12 @@ export async function getLeaderboardStats(): Promise<LeaderboardStats> {
 
     // Get most completed course
     const { data: courseData } = await supabase
-      .from('enrollments')
+      .from('user_progress')
       .select('course_id, courses!inner(title)')
-      .eq('completed', true);
+      .not('completed_at', 'is', null);
 
-    const courseCounts = (courseData || []).reduce((acc: any, enrollment: any) => {
-      const courseTitle = enrollment.courses?.title;
+    const courseCounts = (courseData || []).reduce((acc: any, progress: any) => {
+      const courseTitle = progress.courses?.title;
       if (courseTitle) {
         acc[courseTitle] = (acc[courseTitle] || 0) + 1;
       }
