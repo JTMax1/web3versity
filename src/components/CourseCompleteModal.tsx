@@ -6,9 +6,11 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Award, X, Sparkles, Share2, Download, Loader2, ExternalLink, CheckCircle } from 'lucide-react';
+import { Award, X, Sparkles, Share2, Download, Loader2, ExternalLink, CheckCircle, Link } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { checkCertificateEligibility, claimCertificate } from '../lib/api/certificates';
+import { associateToken, isTokenAssociated } from '../lib/hederaUtils';
+import { env } from '../config';
 
 interface CourseCompleteModalProps {
   isOpen: boolean;
@@ -35,6 +37,14 @@ export function CourseCompleteModal({
   const [certificateData, setCertificateData] = useState<any>(null);
   const [alreadyClaimed, setAlreadyClaimed] = useState(false);
 
+  // Token association state
+  const [tokenAssociated, setTokenAssociated] = useState(false);
+  const [checkingAssociation, setCheckingAssociation] = useState(false);
+  const [associating, setAssociating] = useState(false);
+
+  // Get collection token ID from env
+  const collectionTokenId = env.NFT_COLLECTION_TOKEN_ID;
+
   useEffect(() => {
     if (isOpen) {
       setShowConfetti(true);
@@ -50,9 +60,54 @@ export function CourseCompleteModal({
           .catch(console.error);
       }
 
+      // Check token association if wallet is connected
+      if (connected && account && collectionTokenId) {
+        setCheckingAssociation(true);
+        isTokenAssociated(collectionTokenId, account)
+          .then((associated) => {
+            setTokenAssociated(associated);
+            console.log(`Token ${collectionTokenId} associated:`, associated);
+          })
+          .catch((error) => {
+            console.error('Error checking token association:', error);
+            setTokenAssociated(false);
+          })
+          .finally(() => {
+            setCheckingAssociation(false);
+          });
+      }
+
       return () => clearTimeout(timer);
     }
-  }, [isOpen, user, courseId]);
+  }, [isOpen, user, courseId, connected, account, collectionTokenId]);
+
+  const handleAssociateToken = async () => {
+    if (!collectionTokenId) {
+      setCertificateError('NFT collection not configured');
+      return;
+    }
+
+    setAssociating(true);
+    setCertificateError(null);
+
+    try {
+      console.log('🔗 Associating token with user account...');
+      const result = await associateToken(collectionTokenId);
+
+      if (result.status === 'success') {
+        setTokenAssociated(true);
+        setCertificateError(null);
+        console.log('✅ Token associated successfully');
+      } else {
+        setCertificateError('Token association failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Token association error:', error);
+      setCertificateError(error instanceof Error ? error.message : 'Failed to associate token');
+    } finally {
+      setAssociating(false);
+    }
+  };
 
   const handleClaimCertificate = async () => {
     // Check if user exists
@@ -65,14 +120,37 @@ export function CourseCompleteModal({
     setCertificateError(null);
 
     try {
-      // Check if wallet is connected, if not connect it first
+      // Step 1: Check if wallet is connected, if not connect it first
       if (!connected || !account) {
         console.log('🔗 Connecting wallet for certificate claiming...');
         await connect();
-        console.log('✅ Wallet connected, proceeding with certificate claim');
+        console.log('✅ Wallet connected');
       }
 
-      // Proceed with claiming certificate
+      // Step 2: Check if token is associated, if not associate it first
+      if (!tokenAssociated && collectionTokenId) {
+        console.log('⚠️ Token not associated, associating now...');
+
+        try {
+          const result = await associateToken(collectionTokenId);
+
+          if (result.status === 'success') {
+            setTokenAssociated(true);
+            console.log('✅ Token associated successfully');
+          } else {
+            setCertificateError('Token association failed. Please try again.');
+            setCertificateClaiming(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Token association error:', error);
+          setCertificateError(error instanceof Error ? error.message : 'Failed to associate token');
+          setCertificateClaiming(false);
+          return;
+        }
+      }
+
+      // Step 3: Proceed with claiming certificate
       console.log('🎓 Claiming certificate for course:', courseId);
       const result = await claimCertificate(user.id, courseId);
 
@@ -92,7 +170,7 @@ export function CourseCompleteModal({
       // Better error messages
       if (error instanceof Error) {
         if (error.message.includes('User rejected') || error.message.includes('User denied')) {
-          setCertificateError('Wallet connection cancelled. Please try again.');
+          setCertificateError('Transaction cancelled. Please try again.');
         } else {
           setCertificateError(error.message);
         }
@@ -180,21 +258,37 @@ export function CourseCompleteModal({
                 </p>
                 <button
                   onClick={handleClaimCertificate}
-                  disabled={certificateClaiming}
+                  disabled={certificateClaiming || associating || checkingAssociation}
                   className="w-full py-4 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white rounded-2xl text-lg font-semibold shadow-[0_8px_24px_rgba(0,132,199,0.4)] hover:shadow-[0_12px_32px_rgba(0,132,199,0.5)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {certificateClaiming ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      {connected ? 'Minting NFT...' : 'Connecting Wallet...'}
+                      {!connected ? 'Connecting Wallet...' : !tokenAssociated ? 'Associating Token...' : 'Minting NFT...'}
+                    </>
+                  ) : associating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Associating Token...
+                    </>
+                  ) : checkingAssociation ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Checking...
                     </>
                   ) : (
                     <>
                       <Download className="w-5 h-5" />
-                      {connected ? 'Claim Certificate NFT' : 'Connect Wallet & Claim NFT'}
+                      {!connected ? 'Connect Wallet & Claim NFT' : !tokenAssociated ? 'Associate Token & Claim' : 'Claim Certificate NFT'}
                     </>
                   )}
                 </button>
+                {!tokenAssociated && connected && !checkingAssociation && (
+                  <p className="mt-2 text-xs text-gray-600 text-center">
+                    <Link className="w-3 h-3 inline mr-1" />
+                    Token association required (free, one-time setup)
+                  </p>
+                )}
                 {certificateError && (
                   <p className="mt-3 text-sm text-red-600 flex items-center gap-2">
                     <X className="w-4 h-4" />
