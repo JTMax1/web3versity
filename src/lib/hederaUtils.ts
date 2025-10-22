@@ -623,3 +623,147 @@ export function parseMetamaskError(error: any): string {
   // Return error message or default
   return error.message || 'An error occurred with your wallet';
 }
+
+// ============================================================================
+// TOKEN ASSOCIATION
+// ============================================================================
+
+/**
+ * Associate a token with the user's account (user must sign transaction)
+ * Required before receiving NFTs on Hedera
+ *
+ * @param tokenId - Hedera token ID (e.g., "0.0.123456")
+ * @returns Transaction result with status and explorer URL
+ */
+export async function associateToken(tokenId: string): Promise<TransactionResult> {
+  if (!window.ethereum) {
+    throw new Error('Metamask not detected');
+  }
+
+  try {
+    console.log(`🔗 Associating token ${tokenId} with account...`);
+
+    // Get user's account
+    const accounts = await window.ethereum.request({
+      method: 'eth_requestAccounts',
+    }) as string[];
+
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No account connected');
+    }
+
+    const userAddress = accounts[0];
+
+    // Use Hedera Token Service precompile address
+    // Address: 0x0000000000000000000000000000000000000167 (HTS system contract)
+    const HTS_ADDRESS = '0x0000000000000000000000000000000000000167';
+
+    // Convert Hedera token ID to address format
+    // Token ID format: 0.0.XXXXX -> Need to convert to address
+    const tokenIdParts = tokenId.split('.');
+    const tokenNum = parseInt(tokenIdParts[2]);
+    const tokenAddress = '0x' + tokenNum.toString(16).padStart(40, '0');
+
+    // Function selector for associateToken(address,address)
+    // associateToken function signature: 0x49146bde
+    const functionSelector = '0x49146bde';
+
+    // Encode parameters: user address + token address
+    const encodedUserAddress = userAddress.slice(2).padStart(64, '0');
+    const encodedTokenAddress = tokenAddress.slice(2).padStart(64, '0');
+
+    const data = functionSelector + encodedUserAddress + encodedTokenAddress;
+
+    // Send transaction
+    const txHash = await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [{
+        from: userAddress,
+        to: HTS_ADDRESS,
+        data: data,
+        // gas: '0x100000', // 1,048,576 gas limit removed cause it slows metamask. Not needed since this is just a testnet app
+      }],
+    }) as string;
+
+    console.log(`✅ Token association transaction sent: ${txHash}`);
+
+    // Wait for transaction receipt
+    let receipt = null;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds timeout
+
+    while (!receipt && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      receipt = await window.ethereum.request({
+        method: 'eth_getTransactionReceipt',
+        params: [txHash],
+      });
+      attempts++;
+    }
+
+    if (!receipt) {
+      throw new Error('Transaction receipt not found after 30 seconds');
+    }
+
+    // Check if transaction succeeded
+    const success = receipt.status === '0x1' || receipt.status === 1;
+
+    return {
+      transactionId: txHash,
+      status: success ? 'success' : 'failed',
+      explorerUrl: `https://hashscan.io/testnet/transaction/${txHash}`,
+      timestamp: Date.now(),
+    };
+  } catch (error: any) {
+    console.error('Token association error:', error);
+    throw new Error(parseMetamaskError(error));
+  }
+}
+
+/**
+ * Check if a token is already associated with the user's account
+ *
+ * @param tokenId - Hedera token ID
+ * @param accountAddress - User's EVM address
+ * @returns true if associated, false otherwise
+ */
+export async function isTokenAssociated(
+  tokenId: string,
+  accountAddress: string
+): Promise<boolean> {
+  if (!window.ethereum) {
+    return false;
+  }
+
+  try {
+    const HTS_ADDRESS = '0x0000000000000000000000000000000000000167';
+
+    // Convert token ID to address
+    const tokenIdParts = tokenId.split('.');
+    const tokenNum = parseInt(tokenIdParts[2]);
+    const tokenAddress = '0x' + tokenNum.toString(16).padStart(40, '0');
+
+    // Function selector for isAssociated(address,address) - custom, may not exist
+    // Instead, we'll try to get token balance - if it works, token is associated
+    // Function selector for balanceOf(address,address): 0xf7888aec
+    const functionSelector = '0xf7888aec';
+    const encodedUserAddress = accountAddress.slice(2).padStart(64, '0');
+    const encodedTokenAddress = tokenAddress.slice(2).padStart(64, '0');
+    const data = functionSelector + encodedTokenAddress + encodedUserAddress;
+
+    const result = await window.ethereum.request({
+      method: 'eth_call',
+      params: [{
+        to: HTS_ADDRESS,
+        data: data,
+      }, 'latest'],
+    });
+
+    // If call succeeds without error, token is associated
+    return result !== null && result !== '0x';
+  } catch (error) {
+    console.error('Error checking token association:', error);
+    // If error, assume not associated
+    return false;
+  }
+}

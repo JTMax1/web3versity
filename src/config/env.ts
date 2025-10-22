@@ -25,6 +25,9 @@ interface EnvironmentVariables {
   HEDERA_OPERATOR_ID: string;
   HEDERA_OPERATOR_EVM: string;
 
+  // NFT Certificate Configuration
+  NFT_COLLECTION_TOKEN_ID?: string;
+
   // Application Configuration
   APP_NAME: string;
   APP_URL: string;
@@ -176,6 +179,9 @@ function loadEnvironmentVariables(): EnvironmentVariables {
   const hederaOperatorEvm = getRequiredEnvVar('HEDERA_OPERATOR_EVM');
   validateEvmAddress(hederaOperatorEvm);
 
+  // NFT Certificate Configuration (optional)
+  const nftCollectionTokenId = getEnvVar('NFT_COLLECTION_TOKEN_ID');
+
   // Application Configuration
   const appName = getOptionalEnvVar('APP_NAME', 'Web3Versity');
   const appUrl = getOptionalEnvVar('APP_URL', 'http://localhost:3000');
@@ -200,6 +206,7 @@ function loadEnvironmentVariables(): EnvironmentVariables {
     HEDERA_CHAIN_ID: hederaChainId,
     HEDERA_OPERATOR_ID: hederaOperatorId,
     HEDERA_OPERATOR_EVM: hederaOperatorEvm,
+    NFT_COLLECTION_TOKEN_ID: nftCollectionTokenId,
     APP_NAME: appName,
     APP_URL: appUrl,
     ENABLE_ANALYTICS: enableAnalytics,

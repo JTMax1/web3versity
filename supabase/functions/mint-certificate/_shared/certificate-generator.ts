@@ -51,22 +51,44 @@ export async function uploadToHFS(
   // Create file with first chunk
   const firstChunk = fileBytes.slice(0, MAX_CHUNK_SIZE);
 
+  // Create file with operator public key for management but publicly readable content
+  // Set expiration far in the future (7776000 seconds = 90 days)
+  const expirationTime = new Date();
+  expirationTime.setDate(expirationTime.getDate() + 90);
+
   const fileCreateTx = await new FileCreateTransaction()
-    .setKeys([privateKey])
     .setContents(firstChunk)
+    .setKeys([privateKey.publicKey])
+    .setExpirationTime(expirationTime)
     .setMaxTransactionFee(new Hbar(2))
     .freezeWith(client);
 
   const fileCreateSign = await fileCreateTx.sign(privateKey);
   const fileCreateSubmit = await fileCreateSign.execute(client);
+
+  console.log(`⏳ Waiting for receipt for ${fileName || 'file'}...`);
   const fileCreateReceipt = await fileCreateSubmit.getReceipt(client);
+
+  // Detailed receipt logging
+  console.log(`📋 Receipt details for ${fileName || 'file'}:`);
+  console.log(`   Status: ${fileCreateReceipt.status.toString()}`);
+  console.log(`   Transaction ID: ${fileCreateSubmit.transactionId.toString()}`);
+  console.log(`   File ID: ${fileCreateReceipt.fileId?.toString() || 'null'}`);
+
+  if (fileCreateReceipt.status.toString() !== 'SUCCESS') {
+    throw new Error(`File creation failed with status: ${fileCreateReceipt.status.toString()}`);
+  }
+
   const fileId = fileCreateReceipt.fileId;
 
   if (!fileId) {
     throw new Error('Failed to create HFS file - no file ID returned');
   }
 
-  console.log(`✅ File created: ${fileId.toString()}`);
+  const fileIdString = fileId.toString();
+  console.log(`✅ ${fileName || 'File'} created: ${fileIdString}`);
+  console.log(`   HashScan TX: https://hashscan.io/testnet/transaction/${fileCreateSubmit.transactionId.toString()}`);
+  console.log(`   HashScan File: https://hashscan.io/testnet/file/${fileIdString}`);
 
   // Append remaining chunks if file > 4KB
   if (fileSize > MAX_CHUNK_SIZE) {
@@ -85,7 +107,12 @@ export async function uploadToHFS(
         .freezeWith(client);
 
       const fileAppendSign = await fileAppendTx.sign(privateKey);
-      await fileAppendSign.execute(client);
+      const fileAppendSubmit = await fileAppendSign.execute(client);
+      const fileAppendReceipt = await fileAppendSubmit.getReceipt(client);
+
+      if (fileAppendReceipt.status.toString() !== 'SUCCESS') {
+        throw new Error(`File append failed with status: ${fileAppendReceipt.status.toString()}`);
+      }
 
       offset += MAX_CHUNK_SIZE;
     }
@@ -93,7 +120,7 @@ export async function uploadToHFS(
     console.log(`✅ File upload complete (${chunkCount} chunks)`);
   }
 
-  return fileId.toString();
+  return fileIdString;
 }
 
 /**
@@ -189,6 +216,7 @@ export async function generateAndUploadCertificate(
   metadataFileId: string;
   platformSignature: string;
   svgSize: number;
+  svgContent: string;
 }> {
   // Generate platform signature
   const platformSignature = await generatePlatformSignature(
@@ -257,5 +285,6 @@ export async function generateAndUploadCertificate(
     metadataFileId,
     platformSignature,
     svgSize,
+    svgContent: svg,
   };
 }

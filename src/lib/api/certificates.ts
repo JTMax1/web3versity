@@ -17,6 +17,8 @@ export interface Certificate {
   image_hfs_file_id: string;
   metadata_hfs_file_id: string;
   platform_signature: string;
+  // SVG content (stored in database for immediate display)
+  svg_content?: string;
   // Legacy URIs (for backward compatibility)
   metadata_uri?: string;
   image_uri?: string;
@@ -240,10 +242,13 @@ export async function logCertificateVerification(
 
 /**
  * Fetch file from Hedera File Service via Mirror Node API
+ * Includes retry logic for Mirror Node indexing delays
  */
 export async function fetchFromHFSMirror(
   fileId: string,
-  network: 'testnet' | 'mainnet' = 'testnet'
+  network: 'testnet' | 'mainnet' = 'testnet',
+  maxRetries: number = 5,
+  initialDelay: number = 2000
 ): Promise<Uint8Array> {
   const mirrorNodeUrl =
     network === 'testnet'
@@ -252,22 +257,54 @@ export async function fetchFromHFSMirror(
 
   const url = `${mirrorNodeUrl}/api/v1/files/${fileId}`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch file ${fileId}: ${response.statusText}`);
+  let lastError: Error | null = null;
+  let delay = initialDelay;
+
+  // Retry with exponential backoff
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(`Fetching HFS file ${fileId} (attempt ${attempt + 1}/${maxRetries})...`);
+
+      const response = await fetch(url);
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Decode base64 file_data
+        const base64 = data.file_data;
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        console.log(`✅ Successfully fetched HFS file ${fileId} (${bytes.length} bytes)`);
+        return bytes;
+      }
+
+      // If 404, the file might not be indexed yet - retry
+      if (response.status === 404 && attempt < maxRetries - 1) {
+        console.log(`⏳ File ${fileId} not found yet, waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+        continue;
+      }
+
+      // Other errors
+      lastError = new Error(`Failed to fetch file ${fileId}: ${response.status} ${response.statusText}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Network error');
+
+      if (attempt < maxRetries - 1) {
+        console.log(`⏳ Error fetching file, waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+    }
   }
 
-  const data = await response.json();
-
-  // Decode base64 file_data
-  const base64 = data.file_data;
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  return bytes;
+  throw lastError || new Error(`Failed to fetch file ${fileId} after ${maxRetries} attempts`);
 }
 
 /**

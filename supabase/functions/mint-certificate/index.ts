@@ -8,7 +8,9 @@ import {
   PrivateKey,
   AccountId,
   TokenMintTransaction,
+  TokenAssociateTransaction,
   TransferTransaction,
+  AccountBalanceQuery,
   Hbar,
 } from 'npm:@hashgraph/sdk@^2.75.0';
 import { generateAndUploadCertificate } from './_shared/certificate-generator.ts';
@@ -126,8 +128,7 @@ serve(async (req) => {
     }
 
     // Get collection token ID (try multiple env var names for compatibility)
-    const collectionTokenId = Deno.env.get('NFT_COLLECTION_TOKEN_ID') ||
-                               Deno.env.get('HEDERA_NFT_COLLECTION_TOKEN_ID');
+    const collectionTokenId = Deno.env.get('HEDERA_NFT_COLLECTION_TOKEN_ID') || Deno.env.get('NFT_COLLECTION_TOKEN_ID');
     if (!collectionTokenId) {
       console.error('Collection token ID not configured');
       return new Response(
@@ -135,6 +136,43 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Get or create NFT collection record
+    let { data: collection, error: collectionError } = await supabase
+      .from('nft_collection')
+      .select('id, token_id')
+      .eq('token_id', collectionTokenId)
+      .maybeSingle();
+
+    // If collection doesn't exist, create it
+    if (!collection) {
+      console.log('Creating NFT collection record...');
+      const { data: newCollection, error: createError } = await supabase
+        .from('nft_collection')
+        .insert({
+          collection_name: 'Web3Versity Certificates',
+          collection_symbol: 'W3VCERT',
+          token_id: collectionTokenId,
+          treasury_account: Deno.env.get('HEDERA_OPERATOR_ID') || '',
+          description: 'Course completion certificates on Hedera blockchain',
+          creation_transaction_id: 'created_externally',
+        })
+        .select('id, token_id')
+        .single();
+
+      if (createError || !newCollection) {
+        console.error('Failed to create collection record:', createError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to initialize NFT collection' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      collection = newCollection;
+      console.log(`✅ Collection record created: ${collection.id}`);
+    }
+
+    const collectionRecordId = collection.id;
 
     // Get HMAC secret
     const hmacSecret = Deno.env.get('HEDERA_HMAC_SECRET');
@@ -181,6 +219,21 @@ serve(async (req) => {
 
     client.setOperator(accountId, privateKey);
     client.setDefaultMaxTransactionFee(new Hbar(100));
+
+    // Verify operator account balance
+    try {
+      const balance = await new AccountBalanceQuery()
+        .setAccountId(accountId)
+        .execute(client);
+      console.log(`💰 Operator balance: ${balance.hbars.toString()}`);
+
+      if (balance.hbars.toBigNumber().isLessThan(5)) {
+        console.warn('⚠️ Low HBAR balance - may not be sufficient for transactions');
+      }
+    } catch (error) {
+      console.error('Failed to check operator balance:', error);
+      throw new Error('Unable to verify operator account - check network connectivity');
+    }
 
     // Generate certificate SVG and upload to HFS
     console.log('🎨 Generating certificate package...');
@@ -234,22 +287,38 @@ serve(async (req) => {
 
     const mintTransactionId = mintSubmit.transactionId.toString();
 
-    // Transfer NFT to recipient
-    console.log(`📨 Transferring to ${user.hedera_account_id}...`);
+    // Attempt to transfer NFT to recipient
+    console.log(`📨 Attempting to transfer to ${user.hedera_account_id}...`);
 
-    const transferTx = await new TransferTransaction()
-      .addNftTransfer(collectionTokenId, serialNumber, accountId, recipientId)
-      .setTransactionMemo(`Web3Versity Certificate: ${certificateNumber}`)
-      .setMaxTransactionFee(new Hbar(20))
-      .freezeWith(client);
+    let transferTransactionId: string | undefined;
+    let transferStatus = 'minted'; // Default status if transfer fails
 
-    const transferSign = await transferTx.sign(privateKey);
-    const transferSubmit = await transferSign.execute(client);
-    await transferSubmit.getReceipt(client);
+    try {
+      const transferTx = await new TransferTransaction()
+        .addNftTransfer(collectionTokenId, serialNumber, accountId, recipientId)
+        .setTransactionMemo(`Web3Versity Certificate: ${certificateNumber}`)
+        .setMaxTransactionFee(new Hbar(20))
+        .freezeWith(client);
 
-    const transferTransactionId = transferSubmit.transactionId.toString();
+      const transferSign = await transferTx.sign(privateKey);
+      const transferSubmit = await transferSign.execute(client);
+      await transferSubmit.getReceipt(client);
 
-    console.log(`✅ NFT transferred successfully`);
+      transferTransactionId = transferSubmit.transactionId.toString();
+      transferStatus = 'transferred';
+      console.log(`✅ NFT transferred successfully`);
+    } catch (transferError: any) {
+      console.error('Transfer failed:', transferError.message);
+
+      // Check if it's the TOKEN_NOT_ASSOCIATED error
+      if (transferError.message?.includes('TOKEN_NOT_ASSOCIATED_TO_ACCOUNT')) {
+        console.log('⚠️ Recipient account not associated with token. NFT will remain in treasury pending manual association.');
+        transferStatus = 'minted'; // Keep it as minted, user needs to associate token
+      } else {
+        // Re-throw other errors
+        throw transferError;
+      }
+    }
 
     client.close();
 
@@ -262,26 +331,72 @@ serve(async (req) => {
       userHederaAccountId: user.hedera_account_id,
     };
 
-    // Store in database with new schema
+    // Build unique token identifier: collection_token_id/serial_number
+    const uniqueTokenId = `${collectionTokenId}/${serialNumber.toString()}`;
+
+    // Store in database - COMPLETE record with ALL required fields
+    const certificateRecord: any = {
+      // === REQUIRED FIELDS (NOT NULL) ===
+      user_id: userIdToUse,
+      course_id: courseId,
+      course_title: course.title,
+      completion_date: completionDate, // Already in DATE format (YYYY-MM-DD)
+      token_id: uniqueTokenId, // UNIQUE constraint: collection_token_id/serial_number
+      collection_id: collectionRecordId,
+      issued_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+
+      // === OPTIONAL FIELDS ===
+      serial_number: serialNumber.toNumber(),
+      certificate_number: certificateNumber,
+      verification_code: certificateNumber, // Use cert number for verification
+
+      // HFS storage
+      image_hfs_file_id: certificatePackage.imageFileId,
+      metadata_hfs_file_id: certificatePackage.metadataFileId,
+      metadata_uri: `hfs://${certificatePackage.metadataFileId}`,
+      image_uri: `hfs://${certificatePackage.imageFileId}`,
+
+      // SVG content (stored in database for immediate display)
+      svg_content: certificatePackage.svgContent,
+
+      // Signatures and metadata
+      platform_signature: certificatePackage.platformSignature,
+      certificate_data: certificateData,
+
+      // Transaction tracking
+      mint_transaction_id: mintTransactionId,
+      transaction_id: mintTransactionId, // FK to transactions table
+
+      // Status
+      status: transferStatus,
+    };
+
+    // Only set transfer fields if transfer succeeded
+    if (transferStatus === 'transferred' && transferTransactionId) {
+      certificateRecord.transfer_transaction_id = transferTransactionId;
+      certificateRecord.transferred_at = new Date().toISOString();
+    }
+
+    // Log transaction FIRST (before certificate insert due to FK constraint)
+    await supabase.from('transactions').insert({
+      user_id: userIdToUse,
+      transaction_type: 'nft_mint_certificate',
+      transaction_id: mintTransactionId,
+      amount_hbar: 0,
+      status: 'success',
+      from_account: operatorId,
+      to_account: user.hedera_account_id,
+      related_course_id: courseId,
+      memo: `Certificate ${certificateNumber}`,
+      consensus_timestamp: new Date().toISOString(),
+      hashscan_url: `https://hashscan.io/testnet/token/${collectionTokenId}/${serialNumber.toString()}`,
+    });
+
+    // Now insert certificate (FK reference to transaction will be valid)
     const { data: certificate, error: insertError } = await supabase
       .from('nft_certificates')
-      .insert({
-        user_id: userIdToUse,
-        course_id: courseId,
-        token_id: collectionTokenId,
-        serial_number: serialNumber.toNumber(),
-        certificate_number: certificateNumber,
-        image_hfs_file_id: certificatePackage.imageFileId,
-        metadata_hfs_file_id: certificatePackage.metadataFileId,
-        platform_signature: certificatePackage.platformSignature,
-        metadata_uri: `hfs://${certificatePackage.metadataFileId}`, // Legacy field
-        image_uri: `hfs://${certificatePackage.imageFileId}`, // Legacy field
-        certificate_data: certificateData,
-        mint_transaction_id: mintTransactionId,
-        transfer_transaction_id: transferTransactionId,
-        status: 'transferred',
-        transferred_at: new Date().toISOString(),
-      })
+      .insert(certificateRecord)
       .select()
       .single();
 
@@ -289,38 +404,42 @@ serve(async (req) => {
       console.error('Database insert error:', insertError);
     }
 
-    // Log transaction
-    await supabase.from('transactions').insert({
-      user_id: userIdToUse,
-      transaction_type: 'certificate_mint',
-      transaction_id: mintTransactionId,
-      amount_hbar: 0,
-      status: 'success',
-      from_account: operatorId,
-      to_account: user.hedera_account_id,
-      memo: `Certificate ${certificateNumber}`,
-      consensus_timestamp: new Date().toISOString(),
-      hashscan_url: `https://hashscan.io/testnet/token/${collectionTokenId}/${serialNumber.toString()}`,
-    });
-
     console.log('✅ Certificate minted successfully!');
 
+    const response: any = {
+      success: true,
+      certificate: {
+        id: certificate?.id,
+        certificateNumber,
+        tokenId: collectionTokenId,
+        serialNumber: serialNumber.toNumber(),
+        imageHfsFileId: certificatePackage.imageFileId,
+        metadataHfsFileId: certificatePackage.metadataFileId,
+        platformSignature: certificatePackage.platformSignature,
+        mintTransactionId,
+        transferTransactionId,
+        hashScanUrl: `https://hashscan.io/testnet/token/${collectionTokenId}/${serialNumber.toString()}`,
+        status: transferStatus,
+      },
+    };
+
+    // Add association instructions if transfer failed
+    if (transferStatus === 'minted') {
+      response.warning = 'Certificate minted but not transferred. Please associate your account with the token.';
+      response.associationRequired = true;
+      response.instructions = {
+        message: 'Your certificate NFT has been minted but needs to be transferred to your account.',
+        steps: [
+          'Go to HashScan and view your account',
+          `Associate with token ID: ${collectionTokenId}`,
+          'After association, the NFT will be automatically transferred to your wallet',
+        ],
+        tokenId: collectionTokenId,
+      };
+    }
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        certificate: {
-          id: certificate?.id,
-          certificateNumber,
-          tokenId: collectionTokenId,
-          serialNumber: serialNumber.toNumber(),
-          imageHfsFileId: certificatePackage.imageFileId,
-          metadataHfsFileId: certificatePackage.metadataFileId,
-          platformSignature: certificatePackage.platformSignature,
-          mintTransactionId,
-          transferTransactionId,
-          hashScanUrl: `https://hashscan.io/testnet/token/${collectionTokenId}/${serialNumber.toString()}`,
-        },
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

@@ -40,7 +40,7 @@ export function initializeHederaClient(): Client {
     // Set default transaction fee and query payment
     // Testnet has generous limits, but we set reasonable defaults
     client.setDefaultMaxTransactionFee(100); // 1 HBAR max
-    client.setDefaultMaxQueryPayment(1); // 0.01 HBAR max
+    client.setDefaultMaxQueryPayment(100); // 1 HBAR max
 
     console.log(`✅ Hedera client initialized for account: ${operatorId}`);
 
