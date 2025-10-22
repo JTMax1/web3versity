@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { type Course } from '../../lib/mockData';
-import { getLessonsForCourse } from '../../lib/courseContent';
 import { LessonViewer } from '../course/LessonViewer';
 import { Button } from '../ui/button';
 import { ArrowLeft, CheckCircle, Lock, Award } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useCompletedLessons, useCompleteLesson, useCourseProgress, useUpdateCurrentLesson } from '../../hooks/useLessonProgress';
+import { useLessons } from '../../hooks/useLessons';
 import { XPNotification } from '../XPNotification';
 import { LevelUpModal } from '../LevelUpModal';
 import { CourseCompleteModal } from '../CourseCompleteModal';
@@ -19,7 +19,10 @@ interface CourseViewerProps {
 
 export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerProps) {
   const { user } = useWallet();
-  const lessons = getLessonsForCourse(course.id);
+
+  // Fetch lessons from database (with hardcoded fallback)
+  const { lessons, isLoading: lessonsLoading } = useLessons(course.id);
+
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [showSidebar, setShowSidebar] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -50,7 +53,7 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
 
   // Initialize current lesson from database (resume functionality)
   useEffect(() => {
-    if (!isInitialized && courseProgress && lessons.length > 0 && !loadingCompleted) {
+    if (!isInitialized && courseProgress && lessons.length > 0 && !loadingCompleted && !lessonsLoading) {
       // Find the saved current lesson or determine next uncompleted lesson
       let targetIndex = 0;
 
@@ -74,15 +77,37 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
       setCurrentLessonIndex(targetIndex);
       setIsInitialized(true);
     }
-  }, [courseProgress, lessons, completedLessonIds, isInitialized, loadingCompleted]);
+  }, [courseProgress, lessons, completedLessonIds, isInitialized, loadingCompleted, lessonsLoading]);
 
-  // Update current lesson position when changed (but only after initialization)
+  // Update current lesson position when changed (but only after initialization AND enrollment)
   useEffect(() => {
-    if (isInitialized && user?.id && lessons[currentLessonIndex]) {
+    if (isInitialized && user?.id && courseProgress && lessons[currentLessonIndex]) {
+      // Only update if user is actually enrolled (courseProgress exists)
       updateLesson(user.id, course.id, lessons[currentLessonIndex].id);
     }
-  }, [currentLessonIndex, user?.id, course.id, lessons, updateLesson, isInitialized]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLessonIndex, user?.id, course.id, isInitialized]);
 
+  // Show loading state while fetching lessons
+  if (lessonsLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe] py-12">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)] animate-pulse">
+              <span className="text-5xl">📚</span>
+            </div>
+            <h2 className="mb-4">Loading Lessons...</h2>
+            <p className="text-gray-600">
+              Preparing your course content
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show "coming soon" if no lessons found
   if (lessons.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe] py-12">
@@ -131,16 +156,42 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
       return;
     }
 
+    // OPTIMISTIC UPDATE: Update UI immediately for better UX
+    const previousCompleted = new Set(completedLessons);
+    const previousIndex = currentLessonIndex;
+
+    // Immediately mark as completed in UI
+    const newCompleted = new Set(completedLessons);
+    newCompleted.add(currentLesson.id);
+    setCompletedLessons(newCompleted);
+
+    // Show optimistic success message
+    toast.success('Lesson completed!', {
+      description: 'Saving progress...'
+    });
+
+    // Auto-advance immediately (if not last lesson)
+    const isLastLesson = currentLessonIndex >= lessons.length - 1;
+    if (!isLastLesson) {
+      setTimeout(() => {
+        setCurrentLessonIndex(currentLessonIndex + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 500);
+    }
+
     try {
-      // Mark lesson complete in database
+      console.log('[CourseViewer] Starting lesson completion (background):', {
+        lessonId: currentLesson.id,
+        courseId: course.id,
+        score
+      });
+
+      // Save to database in background (don't block UI)
       const result = await complete(user.id, currentLesson.id, course.id, score);
 
-      if (result.success) {
-        // Update local state
-        const newCompleted = new Set(completedLessons);
-        newCompleted.add(currentLesson.id);
-        setCompletedLessons(newCompleted);
+      console.log('[CourseViewer] Completion result:', result);
 
+      if (result.success) {
         // Show XP notification
         if (result.xpEarned > 0) {
           setXPNotification({ xp: result.xpEarned });
@@ -159,25 +210,30 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
           setTimeout(() => {
             setShowCourseCompleteModal(true);
           }, 1000);
-        } else {
-          // Auto-advance to next lesson
-          if (currentLessonIndex < lessons.length - 1) {
-            setTimeout(() => {
-              setCurrentLessonIndex(currentLessonIndex + 1);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 1000);
-          }
         }
 
-        toast.success('Lesson completed!', {
-          description: `+${result.xpEarned} XP earned`
-        });
+        console.log('[CourseViewer] Progress saved successfully');
       } else {
-        toast.error(result.error || 'Failed to complete lesson');
+        console.error('[CourseViewer] Lesson completion failed:', result.error);
+
+        // ROLLBACK: Revert optimistic update on failure
+        setCompletedLessons(previousCompleted);
+        setCurrentLessonIndex(previousIndex);
+
+        toast.error(result.error || 'Failed to save progress', {
+          description: 'Your progress was not saved. Please try again.'
+        });
       }
     } catch (error) {
-      console.error('Error completing lesson:', error);
-      toast.error('Failed to save progress');
+      console.error('[CourseViewer] Error completing lesson:', error);
+
+      // ROLLBACK: Revert optimistic update on error
+      setCompletedLessons(previousCompleted);
+      setCurrentLessonIndex(previousIndex);
+
+      toast.error('Failed to save progress', {
+        description: 'Network error. Please check your connection and try again.'
+      });
     }
   };
 
