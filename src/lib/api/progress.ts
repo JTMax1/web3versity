@@ -350,7 +350,7 @@ export async function markLessonComplete(
       (newLessonsCompleted / progressData.total_lessons) * 100
     );
 
-    console.log('[markLessonComplete] Updating progress:', { newLessonsCompleted, newProgressPercentage });
+    console.log('[markLessonComplete] Updating progress:', { newLessonsCompleted, newProgressPercentage, totalLessons: progressData.total_lessons });
 
     // Update progress
     const { error: updateError } = await supabase
@@ -374,8 +374,8 @@ export async function markLessonComplete(
       };
     }
 
-    // Step 6: Check if course is complete
-    const courseComplete = newProgressPercentage === 100;
+    // Step 6: Check if course is complete (compare actual counts, not percentages)
+    const courseComplete = newLessonsCompleted >= progressData.total_lessons;
 
     // Step 7: Award course completion bonus
     if (courseComplete) {
