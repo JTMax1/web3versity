@@ -9,6 +9,7 @@ import { useUserBadgesWithStatus } from '../../hooks/useBadges';
 import { useUpdateUserProfile } from '../../hooks/useUser';
 import { ProgressChart } from '../dashboard/ProgressChart';
 import { StreakCalendar } from '../dashboard/StreakCalendar';
+import { CertificatesGallery } from '../profile/CertificatesGallery';
 
 export function Profile() {
   const { user, refreshUser } = useWallet();
@@ -283,53 +284,12 @@ export function Profile() {
           )}
         </div>
 
-        {/* Completed Courses / Certificates */}
+        {/* NFT Certificates Gallery */}
         <div className="mb-8">
           <h2 className="mb-6">
-            Certificates & Completed Courses ({completedCourses?.length || 0})
+            NFT Certificates
           </h2>
-          {isLoading ? (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
-              <p className="text-gray-600">Loading courses...</p>
-            </div>
-          ) : completedCourses && completedCourses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {completedCourses.map((enrollment) => {
-                if (!enrollment.course) return null;
-
-                return (
-                  <div
-                    key={enrollment.id}
-                    className="bg-white rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.9)] transition-all hover:-translate-y-1"
-                  >
-                    <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
-                      <Trophy className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h4 className="text-center mb-2">{enrollment.course.title}</h4>
-                    {enrollment.completed_at && (
-                      <p className="text-xs text-center text-gray-500">
-                        Completed {format(new Date(enrollment.completed_at), 'MMM d, yyyy')}
-                      </p>
-                    )}
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <div className="flex items-center justify-center gap-2 text-sm text-green-600">
-                        <Award className="w-4 h-4" />
-                        <span>Certificate Earned</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
-              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
-                <Trophy className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="mb-2">No certificates yet</h3>
-              <p className="text-gray-600">Complete courses to earn certificates!</p>
-            </div>
-          )}
+          <CertificatesGallery />
         </div>
       </div>
     </div>
