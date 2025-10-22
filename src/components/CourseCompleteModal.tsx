@@ -2,35 +2,88 @@
  * Course Complete Modal Component
  *
  * Celebration modal that appears when user completes entire course.
- * Shows certificate preview and completion bonus.
+ * Shows certificate preview and NFT minting option.
  */
 
 import React, { useEffect, useState } from 'react';
-import { Award, X, Sparkles, Share2, Download } from 'lucide-react';
+import { Award, X, Sparkles, Share2, Download, Loader2, ExternalLink, CheckCircle } from 'lucide-react';
+import { useWallet } from '../contexts/WalletContext';
+import { checkCertificateEligibility, claimCertificate } from '../lib/api/certificates';
 
 interface CourseCompleteModalProps {
   isOpen: boolean;
   onClose: () => void;
   courseName: string;
-  onClaimCertificate?: () => void;
+  courseId: string;
+  onClaimCertificate?: () => void; // Legacy prop
 }
 
 export function CourseCompleteModal({
   isOpen,
   onClose,
   courseName,
+  courseId,
   onClaimCertificate,
 }: CourseCompleteModalProps) {
+  const { user } = useWallet();
   const [showConfetti, setShowConfetti] = useState(false);
+
+  // Certificate claiming state
+  const [certificateClaiming, setCertificateClaiming] = useState(false);
+  const [certificateClaimed, setCertificateClaimed] = useState(false);
+  const [certificateError, setCertificateError] = useState<string | null>(null);
+  const [certificateData, setCertificateData] = useState<any>(null);
+  const [alreadyClaimed, setAlreadyClaimed] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setShowConfetti(true);
       // Confetti animation duration
       const timer = setTimeout(() => setShowConfetti(false), 4000);
+
+      // Check if certificate already claimed
+      if (user && courseId) {
+        checkCertificateEligibility(user.id, courseId)
+          .then((eligibility) => {
+            setAlreadyClaimed(eligibility.already_claimed);
+          })
+          .catch(console.error);
+      }
+
       return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, user, courseId]);
+
+  const handleClaimCertificate = async () => {
+    if (!user || !courseId) {
+      setCertificateError('Please connect your wallet first');
+      return;
+    }
+
+    setCertificateClaiming(true);
+    setCertificateError(null);
+
+    try {
+      console.log('🎓 Claiming certificate for course:', courseId);
+      const result = await claimCertificate(user.id, courseId);
+
+      if (result.success && result.certificate) {
+        setCertificateClaimed(true);
+        setCertificateData(result.certificate);
+        setShowConfetti(true); // Show confetti again!
+
+        // Call legacy callback if provided
+        onClaimCertificate?.();
+      } else {
+        setCertificateError(result.error || 'Failed to claim certificate');
+      }
+    } catch (error) {
+      console.error('Error claiming certificate:', error);
+      setCertificateError(error instanceof Error ? error.message : 'Failed to claim certificate');
+    } finally {
+      setCertificateClaiming(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -96,17 +149,96 @@ export function CourseCompleteModal({
               </div>
             </div>
 
+            {/* NFT Certificate Section */}
+            {!certificateClaimed && !alreadyClaimed && (
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 mb-6 border-2 border-blue-200">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-500" />
+                  Claim Your NFT Certificate
+                </h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Mint your course completion as a verifiable NFT on Hedera blockchain
+                </p>
+                <button
+                  onClick={handleClaimCertificate}
+                  disabled={certificateClaiming}
+                  className="w-full py-4 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white rounded-2xl text-lg font-semibold shadow-[0_8px_24px_rgba(0,132,199,0.4)] hover:shadow-[0_12px_32px_rgba(0,132,199,0.5)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {certificateClaiming ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Minting NFT...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-5 h-5" />
+                      Claim Certificate NFT
+                    </>
+                  )}
+                </button>
+                {certificateError && (
+                  <p className="mt-3 text-sm text-red-600 flex items-center gap-2">
+                    <X className="w-4 h-4" />
+                    {certificateError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Success Message */}
+            {(certificateClaimed || alreadyClaimed) && certificateData && (
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 mb-6 border-2 border-green-200">
+                <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  NFT Certificate Claimed!
+                </h4>
+                <p className="text-sm text-green-700 mb-4">
+                  Certificate #{certificateData.certificateNumber} minted successfully with SVG certificate
+                </p>
+                <div className="space-y-2 text-sm text-green-700">
+                  <div className="flex justify-between">
+                    <span>Token ID:</span>
+                    <span className="font-mono">{certificateData.tokenId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Serial:</span>
+                    <span className="font-mono">#{certificateData.serialNumber}</span>
+                  </div>
+                  {certificateData.imageHfsFileId && (
+                    <div className="flex justify-between">
+                      <span>Image HFS ID:</span>
+                      <span className="font-mono text-xs">{certificateData.imageHfsFileId}</span>
+                    </div>
+                  )}
+                  {certificateData.metadataHfsFileId && (
+                    <div className="flex justify-between">
+                      <span>Metadata HFS ID:</span>
+                      <span className="font-mono text-xs">{certificateData.metadataHfsFileId}</span>
+                    </div>
+                  )}
+                </div>
+                <a
+                  href={certificateData.hashScanUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  View on HashScan
+                </a>
+              </div>
+            )}
+
+            {alreadyClaimed && !certificateData && (
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-6 mb-6 border-2 border-gray-200">
+                <p className="text-sm text-gray-600 text-center">
+                  ✅ Certificate already claimed for this course
+                </p>
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
-              {onClaimCertificate && (
-                <button
-                  onClick={onClaimCertificate}
-                  className="flex-1 py-4 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white rounded-2xl text-lg font-semibold shadow-[0_8px_24px_rgba(0,132,199,0.4)] hover:shadow-[0_12px_32px_rgba(0,132,199,0.5)] transition-all flex items-center justify-center gap-2"
-                >
-                  <Download className="w-5 h-5" />
-                  Claim Certificate (NFT)
-                </button>
-              )}
               <button
                 onClick={() => {
                   // Share functionality placeholder

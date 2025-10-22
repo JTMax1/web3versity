@@ -89,19 +89,25 @@ export function InteractiveLesson({ content, onComplete, isCompleted = false, is
       <div className="pt-6 border-t border-gray-200">
         <Button
           onClick={() => onComplete()}
-          disabled={!hasInteracted || isCompleted || isCompleting}
+          disabled={!hasInteracted || isCompleting}
           className={`w-full py-6 rounded-2xl transition-all ${
-            isCompleted
-              ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-              : isCompleting
+            isCompleting
               ? 'bg-gray-400 text-white cursor-wait'
+              : isCompleted
+              ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-[0_4px_16px_rgba(34,197,94,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
               : hasInteracted
               ? 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
               : 'bg-gray-200 text-gray-500 cursor-not-allowed'
           }`}
         >
           <CheckCircle className="w-5 h-5 mr-2" />
-          {isCompleted ? '✓ Completed' : isCompleting ? 'Saving...' : hasInteracted ? 'Mark as Complete & Continue' : 'Complete the interactive activity'}
+          {isCompleting
+            ? 'Saving...'
+            : isCompleted
+            ? 'Continue to Next Lesson →'
+            : hasInteracted
+            ? 'Save & Continue'
+            : 'Complete the interactive activity'}
         </Button>
       </div>
     </div>

@@ -22,6 +22,7 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
   const lessons = getLessonsForCourse(course.id);
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Lesson progress hooks
   const { completedLessonIds, isLoading: loadingCompleted } = useCompletedLessons(user?.id, course.id);
@@ -47,12 +48,40 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
     }
   }, [completedLessonIds]);
 
-  // Update current lesson position when changed
+  // Initialize current lesson from database (resume functionality)
   useEffect(() => {
-    if (user?.id && lessons[currentLessonIndex]) {
+    if (!isInitialized && courseProgress && lessons.length > 0 && !loadingCompleted) {
+      // Find the saved current lesson or determine next uncompleted lesson
+      let targetIndex = 0;
+
+      if (courseProgress.current_lesson_id) {
+        // Find the index of the saved current lesson
+        const savedIndex = lessons.findIndex(l => l.id === courseProgress.current_lesson_id);
+        if (savedIndex !== -1) {
+          targetIndex = savedIndex;
+        }
+      } else if (completedLessonIds.length > 0) {
+        // No saved current lesson, find first uncompleted
+        const firstUncompletedIndex = lessons.findIndex(l => !completedLessonIds.includes(l.id));
+        if (firstUncompletedIndex !== -1) {
+          targetIndex = firstUncompletedIndex;
+        } else {
+          // All completed, go to last lesson
+          targetIndex = lessons.length - 1;
+        }
+      }
+
+      setCurrentLessonIndex(targetIndex);
+      setIsInitialized(true);
+    }
+  }, [courseProgress, lessons, completedLessonIds, isInitialized, loadingCompleted]);
+
+  // Update current lesson position when changed (but only after initialization)
+  useEffect(() => {
+    if (isInitialized && user?.id && lessons[currentLessonIndex]) {
       updateLesson(user.id, course.id, lessons[currentLessonIndex].id);
     }
-  }, [currentLessonIndex, user?.id, course.id, lessons, updateLesson]);
+  }, [currentLessonIndex, user?.id, course.id, lessons, updateLesson, isInitialized]);
 
   if (lessons.length === 0) {
     return (
@@ -88,13 +117,16 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
       return;
     }
 
-    // Check if already completed
-    if (completedLessons.has(currentLesson.id)) {
-      toast.info('Lesson already completed!');
-      // Still advance to next lesson
+    const isAlreadyCompleted = completedLessons.has(currentLesson.id);
+
+    // If already completed, just advance to next lesson
+    if (isAlreadyCompleted) {
       if (currentLessonIndex < lessons.length - 1) {
         setCurrentLessonIndex(currentLessonIndex + 1);
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        toast.success('Continuing to next lesson...');
+      } else {
+        toast.info('You have completed all lessons in this course!');
       }
       return;
     }
@@ -150,18 +182,20 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
   };
 
   const goToLesson = (index: number) => {
-    // Can only go to completed lessons or the next uncompleted one
     const lesson = lessons[index];
     const isCompleted = completedLessons.has(lesson.id);
-    const isPrevious = index < currentLessonIndex;
-    const isNext = index === currentLessonIndex;
-    
-    // Allow if completed, is current, or is the next lesson after last completed
-    const allPreviousCompleted = lessons.slice(0, index).every(l => completedLessons.has(l.id));
-    
-    if (isCompleted || isPrevious || (isNext && allPreviousCompleted) || index === 0) {
+
+    // Allow navigation to:
+    // 1. Any completed lesson (can review)
+    // 2. The first lesson (always accessible)
+    // 3. Any lesson where all previous lessons are completed (sequential unlock)
+    const allPreviousCompleted = index === 0 || lessons.slice(0, index).every(l => completedLessons.has(l.id));
+
+    if (isCompleted || allPreviousCompleted) {
       setCurrentLessonIndex(index);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      toast.info('Complete previous lessons first to unlock this one');
     }
   };
 

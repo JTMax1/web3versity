@@ -100,16 +100,20 @@ export function QuizLesson({ content, onComplete, isCompleted = false, isComplet
           {passed && (
             <Button
               onClick={() => onComplete(percentage)}
-              disabled={isCompleted || isCompleting}
+              disabled={isCompleting}
               className={`rounded-2xl px-8 py-4 ${
-                isCompleted
-                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  : isCompleting
+                isCompleting
                   ? 'bg-gray-400 text-white cursor-wait'
+                  : isCompleted
+                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-[0_4px_16px_rgba(34,197,94,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
                   : 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]'
               }`}
             >
-              {isCompleted ? '✓ Completed' : isCompleting ? 'Saving...' : 'Continue to Next Lesson'}
+              {isCompleting
+                ? 'Saving...'
+                : isCompleted
+                ? 'Continue to Next Lesson →'
+                : 'Save & Continue'}
             </Button>
           )}
         </div>
