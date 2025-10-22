@@ -9,6 +9,7 @@ import { Leaderboard } from './components/pages/Leaderboard';
 import { Faucet } from './components/pages/Faucet';
 import { Community } from './components/pages/Community';
 import { Profile } from './components/pages/Profile';
+import VerifyCertificate from './components/pages/VerifyCertificate';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { mockCourses, mockBadges, mockLeaderboard, mockDiscussions, type Course } from './lib/mockData';
 import { adaptDatabaseUserToUI } from './lib/userAdapter';
@@ -18,7 +19,7 @@ import { WalletProvider } from './contexts/WalletContext';
 import { useAuth } from './hooks/useAuth';
 import { MetamaskPrompt } from './components/MetamaskPrompt';
 
-type Page = 'home' | 'dashboard' | 'courses' | 'course-viewer' | 'playground' | 'leaderboard' | 'faucet' | 'community' | 'profile';
+type Page = 'home' | 'dashboard' | 'courses' | 'course-viewer' | 'playground' | 'leaderboard' | 'faucet' | 'community' | 'profile' | 'verify';
 
 function AppContent() {
   const { user: dbUser, isAuthenticated, balance } = useAuth();
@@ -32,7 +33,10 @@ function AppContent() {
   }, [dbUser, balance]);
 
   const handleNavigate = (page: Page) => {
-    if (page !== 'home' && !isAuthenticated) {
+    // Public pages (no auth required)
+    const publicPages: Page[] = ['home', 'verify'];
+
+    if (!publicPages.includes(page) && !isAuthenticated) {
       toast.error('Please connect your wallet first');
       return;
     }
@@ -161,10 +165,7 @@ function AppContent() {
 
       {currentPage === 'leaderboard' && (
         <ProtectedRoute onNavigate={handleNavigate}>
-          <Leaderboard
-            leaderboard={mockLeaderboard}
-            currentUserRank={14}
-          />
+          <Leaderboard />
         </ProtectedRoute>
       )}
 
@@ -184,6 +185,10 @@ function AppContent() {
         <ProtectedRoute onNavigate={handleNavigate}>
           <Profile user={user!} badges={mockBadges} />
         </ProtectedRoute>
+      )}
+
+      {currentPage === 'verify' && (
+        <VerifyCertificate />
       )}
 
       <MetamaskPrompt />
