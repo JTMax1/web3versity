@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock } from 'lucide-react';
+import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock, Download } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useWallet } from '../../contexts/WalletContext';
 import { useUserStats } from '../../hooks/useStats';
@@ -10,6 +10,7 @@ import { useUpdateUserProfile } from '../../hooks/useUser';
 import { ProgressChart } from '../dashboard/ProgressChart';
 import { StreakCalendar } from '../dashboard/StreakCalendar';
 import { CertificatesGallery } from '../profile/CertificatesGallery';
+import { CourseCompleteModal } from '../CourseCompleteModal';
 
 export function Profile() {
   const { user, refreshUser } = useWallet();
@@ -34,6 +35,11 @@ export function Profile() {
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);
   const [editedAvatar, setEditedAvatar] = useState(user.avatar_emoji || '👤');
   const [showBalance, setShowBalance] = useState(false);
+  const [certificateModal, setCertificateModal] = useState<{ show: boolean; courseId: string; courseName: string }>({
+    show: false,
+    courseId: '',
+    courseName: ''
+  });
 
   const isLoading = statsLoading || coursesLoading || badgesLoading;
   const memberSince = user.created_at ? format(new Date(user.created_at), 'MMMM yyyy') : 'Recently';
@@ -284,6 +290,59 @@ export function Profile() {
           )}
         </div>
 
+        {/* Completed Courses - Claim Certificates */}
+        {completedCourses && completedCourses.length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-6">
+              Completed Courses
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {completedCourses.map((enrollment) => (
+                <div
+                  key={enrollment.course_id}
+                  className="bg-white rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] hover:shadow-[0_12px_40px_rgba(0,0,0,0.12)] transition-all"
+                >
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Trophy className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
+                        {enrollment.courses?.title || 'Course'}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        Completed {enrollment.completed_at ? format(new Date(enrollment.completed_at), 'MMM d, yyyy') : 'Recently'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Progress</span>
+                      <span className="text-green-600 font-semibold">100%</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full w-full" />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setCertificateModal({
+                      show: true,
+                      courseId: enrollment.course_id,
+                      courseName: enrollment.courses?.title || 'Course'
+                    })}
+                    className="mt-4 w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-semibold hover:from-yellow-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(251,191,36,0.3)]"
+                  >
+                    <Award className="w-5 h-5" />
+                    View Certificate
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* NFT Certificates Gallery */}
         <div className="mb-8">
           <h2 className="mb-6">
@@ -292,6 +351,16 @@ export function Profile() {
           <CertificatesGallery />
         </div>
       </div>
+
+      {/* Certificate Modal */}
+      {certificateModal.show && (
+        <CourseCompleteModal
+          isOpen={certificateModal.show}
+          onClose={() => setCertificateModal({ show: false, courseId: '', courseName: '' })}
+          courseName={certificateModal.courseName}
+          courseId={certificateModal.courseId}
+        />
+      )}
     </div>
   );
 }

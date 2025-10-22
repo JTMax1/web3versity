@@ -277,6 +277,16 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
                 <h1 className="mb-1">{course.title}</h1>
                 <p className="text-gray-600">{course.description}</p>
               </div>
+              {/* Show certificate button if course is completed */}
+              {courseProgress?.completed_at && (
+                <Button
+                  onClick={() => setShowCourseCompleteModal(true)}
+                  className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 rounded-2xl px-6 py-3 shadow-[0_8px_24px_rgba(251,191,36,0.4)] hover:shadow-[0_12px_32px_rgba(251,191,36,0.5)] transition-all flex items-center gap-2"
+                >
+                  <Award className="w-5 h-5" />
+                  View Certificate
+                </Button>
+              )}
             </div>
 
             {/* Progress Bar */}
