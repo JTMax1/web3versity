@@ -27,26 +27,40 @@ async function generateQRCodeSVG(url: string): Promise<string> {
   // Generate QR code as SVG string
   const svgString = await qrcode.toString(url, {
     type: 'svg',
-    width: 80,
-    margin: 0,
-    errorCorrectionLevel: 'M'
+    width: 100,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+    color: {
+      dark: '#000000',
+      light: '#FFFFFF'
+    }
   });
 
-  // Extract just the path/rect elements from the SVG
-  const pathMatch = svgString.match(/<path[^>]*d="([^"]*)"/);
-  const path = pathMatch ? pathMatch[1] : '';
+  // Log the generated SVG for debugging
+  console.log('Generated QR SVG preview:', svgString.substring(0, 300));
 
-  if (path) {
-    return `<path d="${path}" fill="#000"/>`;
+  // Extract everything inside the <svg> tags (the actual content)
+  const contentMatch = svgString.match(/<svg[^>]*>([\s\S]*?)<\/svg>/);
+  if (contentMatch) {
+    const innerContent = contentMatch[1];
+
+    // Extract viewBox for proper scaling
+    const viewBoxMatch = svgString.match(/viewBox="([^"]*)"/);
+    const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 100 100';
+
+    console.log('QR Code viewBox:', viewBox);
+    console.log('QR Code content length:', innerContent.length);
+
+    // Return a proper SVG with white background and the QR pattern
+    return `<svg viewBox="${viewBox}" width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="#ffffff"/>
+      ${innerContent}
+    </svg>`;
   }
 
-  // Fallback: extract rect elements if no path found
-  const rectMatches = Array.from(svgString.matchAll(/<rect\s+([^>]*)\/>/g));
-  const rects = rectMatches
-    .map((match) => `<rect ${match[1]}/>`)
-    .join('');
-
-  return rects;
+  // Fallback: return the entire SVG string as-is
+  console.warn('Could not extract QR content, returning full SVG');
+  return svgString;
 }
 
 /**
@@ -105,8 +119,8 @@ export async function generateCertificateSVG(data: CertificateData): Promise<str
 <text x="500" y="500" font-family="monospace" font-size="14" fill="#9ca3af" text-anchor="middle">Certificate #${certificateNumber}</text>
 <text x="100" y="580" font-family="Arial,sans-serif" font-size="12" fill="#6b7280" text-anchor="start">Issued by Web3Versity</text>
 <text x="100" y="600" font-family="Arial,sans-serif" font-size="12" fill="#6b7280" text-anchor="start">Powered by Hedera</text>
-<text x="900" y="580" font-family="monospace" font-size="10" fill="#9ca3af" text-anchor="end">Verify:</text>
-<g transform="translate(800,530) scale(0.8)">
+<text x="900" y="520" font-family="Arial,sans-serif" font-size="10" fill="#6b7280" text-anchor="end">Scan to Verify:</text>
+<g transform="translate(800,530)">
 ${qrPath}
 </g>
 <text x="900" y="640" font-family="monospace" font-size="8" fill="#d1d5db" text-anchor="end" opacity="0.5">Sig: ${platformSignature.substring(0, 16)}...</text>
