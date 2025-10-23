@@ -212,7 +212,7 @@ export async function generateAndUploadCertificate(
   client: Client,
   privateKey: PrivateKey,
   hmacSecret: string,
-  baseUrl: string = 'https://web3versity.app',
+  baseUrl: string = 'https://web3versity.netlify.app',
   pinataConfig?: {
     apiKey: string;
     apiSecret: string;

@@ -1,0 +1,17 @@
+[build]
+  # Build command to run
+  command = "pnpm install && pnpm run build"
+
+  # Directory with the built files (Vite default)
+  publish = "dist"
+
+[build.environment]
+  # Use Node 18 (required for some dependencies)
+  NODE_VERSION = "18"
+
+# Redirect all requests to index.html for client-side routing
+# This is needed when you implement React Router
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

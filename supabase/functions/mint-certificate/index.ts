@@ -238,7 +238,7 @@ serve(async (req) => {
     // Generate certificate SVG and upload to HFS + Pinata
     console.log('🎨 Generating certificate package...');
 
-    const baseUrl = Deno.env.get('VITE_APP_URL') || 'https://web3versity.app';
+    const baseUrl = Deno.env.get('VITE_APP_URL') || 'https://web3versity.netlify.app';
     const completionDate = new Date().toISOString().split('T')[0];
 
     // Get Pinata credentials (optional)
