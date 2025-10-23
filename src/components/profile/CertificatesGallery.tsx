@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { Award, ExternalLink, Download, Eye, Loader2 } from 'lucide-react';
-import { getUserCertificates, fetchCertificateSVG, type Certificate } from '../../lib/api/certificates';
+import { getUserCertificates, fetchCertificateSVG, fetchCertificateSVGFromIPFS, type Certificate } from '../../lib/api/certificates';
 import { useAuth } from '../../hooks/useAuth';
 
 export function CertificatesGallery() {
@@ -35,7 +35,7 @@ export function CertificatesGallery() {
       // Preload SVGs for the first 3 certificates
       const certsToPreload = certs.slice(0, 3);
       for (const cert of certsToPreload) {
-        loadSVG(cert.id, cert.image_hfs_file_id, (cert as any).svg_content);
+        loadSVG(cert.id, cert.image_hfs_file_id, cert.svg_content, cert.ipfs_image_hash);
       }
     } catch (error) {
       console.error('Error loading certificates:', error);
@@ -44,24 +44,37 @@ export function CertificatesGallery() {
     }
   };
 
-  const loadSVG = async (certId: string, imageHfsFileId: string, svgContent?: string) => {
+  const loadSVG = async (certId: string, imageHfsFileId: string, svgContent?: string, ipfsImageHash?: string) => {
     if (svgData[certId] || loadingSvg[certId]) return;
 
-    // If SVG content is already in the certificate data, use it directly
+    // Priority 1: Use SVG content from database (instant)
     if (svgContent) {
       console.log(`✅ Using SVG from database for certificate ${certId}`);
       setSvgData((prev) => ({ ...prev, [certId]: svgContent }));
       return;
     }
 
-    // Otherwise, try to fetch from HFS
     setLoadingSvg((prev) => ({ ...prev, [certId]: true }));
+
     try {
+      // Priority 2: Try Pinata/IPFS (reliable, public)
+      if (ipfsImageHash) {
+        console.log(`📥 Fetching SVG from Pinata/IPFS for certificate ${certId}...`);
+        try {
+          const svg = await fetchCertificateSVGFromIPFS(ipfsImageHash);
+          setSvgData((prev) => ({ ...prev, [certId]: svg }));
+          return;
+        } catch (ipfsError) {
+          console.warn('IPFS fetch failed, trying HFS...', ipfsError);
+        }
+      }
+
+      // Priority 3: Fallback to HFS (may have issues)
       console.log(`📥 Fetching SVG from HFS for certificate ${certId}...`);
       const svg = await fetchCertificateSVG(imageHfsFileId);
       setSvgData((prev) => ({ ...prev, [certId]: svg }));
     } catch (error) {
-      console.error('Error loading SVG:', error);
+      console.error('Error loading SVG from all sources:', error);
     } finally {
       setLoadingSvg((prev) => ({ ...prev, [certId]: false }));
     }
@@ -85,7 +98,7 @@ export function CertificatesGallery() {
   const openCertificate = (cert: Certificate) => {
     // Load SVG if not already loaded
     if (!svgData[cert.id]) {
-      loadSVG(cert.id, cert.image_hfs_file_id, (cert as any).svg_content);
+      loadSVG(cert.id, cert.image_hfs_file_id, cert.svg_content, cert.ipfs_image_hash);
     }
     setSelectedCert(cert);
   };

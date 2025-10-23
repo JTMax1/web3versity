@@ -13,11 +13,13 @@ import {
 } from 'npm:@hashgraph/sdk@^2.75.0';
 import { generateCertificateSVG, svgToBytes, validateSVGSize } from './certificate-svg.ts';
 import { generatePlatformSignature } from './signature.ts';
+import { uploadToPinata, uploadJSONToPinata } from './pinata-uploader.ts';
 
 export interface CertificateMetadata {
   name: string;
   description: string;
   image_hfs_file_id: string;
+  image?: string; // IPFS URL (ipfs://xxx) for NFT marketplaces
   attributes: Array<{
     trait_type: string;
     value: string;
@@ -210,13 +212,21 @@ export async function generateAndUploadCertificate(
   client: Client,
   privateKey: PrivateKey,
   hmacSecret: string,
-  baseUrl: string = 'https://web3versity.app'
+  baseUrl: string = 'https://web3versity.app',
+  pinataConfig?: {
+    apiKey: string;
+    apiSecret: string;
+  }
 ): Promise<{
   imageFileId: string;
   metadataFileId: string;
   platformSignature: string;
   svgSize: number;
   svgContent: string;
+  ipfsImageHash?: string;
+  ipfsImageUrl?: string;
+  ipfsMetadataHash?: string;
+  ipfsMetadataUrl?: string;
 }> {
   // Generate platform signature
   const platformSignature = await generatePlatformSignature(
@@ -250,7 +260,7 @@ export async function generateAndUploadCertificate(
   const svgBytes = svgToBytes(svg);
   const svgSize = svgBytes.length;
 
-  // Upload SVG to HFS
+  // Upload SVG to HFS (Hedera File Service)
   const imageFileId = await uploadToHFS(
     svgBytes,
     client,
@@ -258,7 +268,71 @@ export async function generateAndUploadCertificate(
     `certificate-${certificateNumber}.svg`
   );
 
-  // Upload metadata JSON to HFS
+  // Initialize result object
+  let ipfsImageHash: string | undefined;
+  let ipfsImageUrl: string | undefined;
+  let ipfsMetadataHash: string | undefined;
+  let ipfsMetadataUrl: string | undefined;
+
+  // Upload to Pinata/IPFS if credentials provided
+  if (pinataConfig) {
+    try {
+      console.log('📤 Uploading to Pinata/IPFS...');
+
+      // Upload SVG image to IPFS
+      const ipfsImageResult = await uploadToPinata(
+        svg,
+        `certificate-${certificateNumber}.svg`,
+        pinataConfig.apiKey,
+        pinataConfig.apiSecret
+      );
+
+      ipfsImageHash = ipfsImageResult.ipfsHash;
+      ipfsImageUrl = ipfsImageResult.ipfsUrl;
+
+      console.log(`✅ SVG uploaded to IPFS: ${ipfsImageHash}`);
+
+      // Create metadata JSON with IPFS image URL
+      const metadata: CertificateMetadata = {
+        name: `Web3Versity Certificate - ${courseData.courseName}`,
+        description: `Certificate of Completion for ${courseData.courseName}, awarded to ${userData.userName} on ${new Date(completionDate).toLocaleDateString()}`,
+        image_hfs_file_id: imageFileId,
+        image: ipfsImageUrl, // IPFS URL for NFT marketplaces
+        attributes: [
+          { trait_type: 'Student', value: userData.userName },
+          { trait_type: 'Course', value: courseData.courseName },
+          { trait_type: 'Certificate Number', value: certificateNumber },
+          {
+            trait_type: 'Completion Date',
+            value: new Date(completionDate).toISOString().split('T')[0],
+          },
+          { trait_type: 'Platform', value: 'Web3Versity' },
+          { trait_type: 'Network', value: 'Hedera Testnet' },
+          { trait_type: 'Hedera Account', value: userData.hederaAccountId },
+        ],
+        platform_signature: platformSignature,
+        external_url: verificationUrl,
+      };
+
+      // Upload metadata to IPFS
+      const ipfsMetadataResult = await uploadJSONToPinata(
+        metadata,
+        `certificate-${certificateNumber}-metadata.json`,
+        pinataConfig.apiKey,
+        pinataConfig.apiSecret
+      );
+
+      ipfsMetadataHash = ipfsMetadataResult.ipfsHash;
+      ipfsMetadataUrl = ipfsMetadataResult.ipfsUrl;
+
+      console.log(`✅ Metadata uploaded to IPFS: ${ipfsMetadataHash}`);
+    } catch (error) {
+      console.error('⚠️ Pinata upload failed (continuing with HFS only):', error);
+      // Continue without IPFS - HFS is still available
+    }
+  }
+
+  // Upload metadata JSON to HFS (fallback/backup)
   const metadataFileId = await createMetadataJsonAndUpload(
     {
       userName: userData.userName,
@@ -277,6 +351,14 @@ export async function generateAndUploadCertificate(
   console.log('✅ Certificate package created:');
   console.log(`   Image HFS ID: ${imageFileId}`);
   console.log(`   Metadata HFS ID: ${metadataFileId}`);
+  if (ipfsImageHash) {
+    console.log(`   Image IPFS Hash: ${ipfsImageHash}`);
+    console.log(`   Image IPFS URL: ${ipfsImageUrl}`);
+  }
+  if (ipfsMetadataHash) {
+    console.log(`   Metadata IPFS Hash: ${ipfsMetadataHash}`);
+    console.log(`   Metadata IPFS URL: ${ipfsMetadataUrl}`);
+  }
   console.log(`   SVG Size: ${svgSize} bytes`);
   console.log(`   Signature: ${platformSignature.substring(0, 16)}...`);
 
@@ -286,5 +368,9 @@ export async function generateAndUploadCertificate(
     platformSignature,
     svgSize,
     svgContent: svg,
+    ipfsImageHash,
+    ipfsImageUrl,
+    ipfsMetadataHash,
+    ipfsMetadataUrl,
   };
 }

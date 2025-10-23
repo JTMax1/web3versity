@@ -642,11 +642,15 @@ export async function associateToken(tokenId: string): Promise<TransactionResult
 
   try {
     console.log(`🔗 Associating token ${tokenId} with account...`);
+    console.time('Token Association Total Time');
 
-    // Get user's account
+    // Get user's account (may be slow if MetaMask is loading)
+    console.log('⏳ Requesting accounts from MetaMask...');
+    console.time('MetaMask Account Request');
     const accounts = await window.ethereum.request({
       method: 'eth_requestAccounts',
     }) as string[];
+    console.timeEnd('MetaMask Account Request');
 
     if (!accounts || accounts.length === 0) {
       throw new Error('No account connected');
@@ -674,7 +678,9 @@ export async function associateToken(tokenId: string): Promise<TransactionResult
 
     const data = functionSelector + encodedUserAddress + encodedTokenAddress;
 
-    // Send transaction
+    // Send transaction (MetaMask popup will appear here)
+    console.log('⏳ Sending transaction to MetaMask for signing...');
+    console.time('MetaMask Transaction Signing');
     const txHash = await window.ethereum.request({
       method: 'eth_sendTransaction',
       params: [{
@@ -684,10 +690,13 @@ export async function associateToken(tokenId: string): Promise<TransactionResult
         // gas: '0x100000', // 1,048,576 gas limit removed cause it slows metamask. Not needed since this is just a testnet app
       }],
     }) as string;
+    console.timeEnd('MetaMask Transaction Signing');
 
     console.log(`✅ Token association transaction sent: ${txHash}`);
 
     // Wait for transaction receipt
+    console.log('⏳ Waiting for transaction confirmation...');
+    console.time('Transaction Confirmation');
     let receipt = null;
     let attempts = 0;
     const maxAttempts = 30; // 30 seconds timeout
@@ -699,7 +708,12 @@ export async function associateToken(tokenId: string): Promise<TransactionResult
         params: [txHash],
       });
       attempts++;
+
+      if (attempts % 5 === 0) {
+        console.log(`Still waiting... (${attempts}/${maxAttempts} seconds)`);
+      }
     }
+    console.timeEnd('Transaction Confirmation');
 
     if (!receipt) {
       throw new Error('Transaction receipt not found after 30 seconds');
@@ -708,6 +722,9 @@ export async function associateToken(tokenId: string): Promise<TransactionResult
     // Check if transaction succeeded
     const success = receipt.status === '0x1' || receipt.status === 1;
 
+    console.timeEnd('Token Association Total Time');
+    console.log(`🎉 Token association ${success ? 'successful' : 'failed'}!`);
+
     return {
       transactionId: txHash,
       status: success ? 'success' : 'failed',
@@ -715,6 +732,8 @@ export async function associateToken(tokenId: string): Promise<TransactionResult
       timestamp: Date.now(),
     };
   } catch (error: any) {
+    console.timeEnd('Token Association Total Time');
+    console.error('❌ Token association failed:', error);
     console.error('Token association error:', error);
     throw new Error(parseMetamaskError(error));
   }

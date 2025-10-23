@@ -13,10 +13,15 @@ export interface Certificate {
   token_id: string;
   serial_number: number;
   certificate_number: string;
-  // HFS File IDs (NEW - Hedera File Service)
+  // HFS File IDs (Hedera File Service)
   image_hfs_file_id: string;
   metadata_hfs_file_id: string;
   platform_signature: string;
+  // IPFS/Pinata storage
+  ipfs_image_hash?: string;
+  ipfs_image_url?: string;
+  ipfs_metadata_hash?: string;
+  ipfs_metadata_url?: string;
   // SVG content (stored in database for immediate display)
   svg_content?: string;
   // Legacy URIs (for backward compatibility)
@@ -330,6 +335,29 @@ export async function fetchCertificateMetadata(metadataHfsFileId: string): Promi
     return JSON.parse(metadataString);
   } catch (error) {
     console.error('Error fetching certificate metadata:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch SVG from Pinata/IPFS gateway
+ */
+export async function fetchCertificateSVGFromIPFS(ipfsHash: string): Promise<string> {
+  try {
+    // Try Pinata gateway first
+    const pinataUrl = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+    console.log(`📥 Fetching SVG from Pinata: ${ipfsHash}`);
+
+    const response = await fetch(pinataUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch from Pinata: ${response.statusText}`);
+    }
+
+    const svg = await response.text();
+    console.log(`✅ Successfully fetched SVG from IPFS (${svg.length} bytes)`);
+    return svg;
+  } catch (error) {
+    console.error('Error fetching SVG from IPFS:', error);
     throw error;
   }
 }

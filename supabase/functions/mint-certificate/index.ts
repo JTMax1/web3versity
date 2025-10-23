@@ -235,11 +235,24 @@ serve(async (req) => {
       throw new Error('Unable to verify operator account - check network connectivity');
     }
 
-    // Generate certificate SVG and upload to HFS
+    // Generate certificate SVG and upload to HFS + Pinata
     console.log('🎨 Generating certificate package...');
 
     const baseUrl = Deno.env.get('VITE_APP_URL') || 'https://web3versity.app';
     const completionDate = new Date().toISOString().split('T')[0];
+
+    // Get Pinata credentials (optional)
+    const pinataApiKey = Deno.env.get('PINATA_API_KEY');
+    const pinataApiSecret = Deno.env.get('PINATA_API_SECRET');
+    const pinataConfig = pinataApiKey && pinataApiSecret
+      ? { apiKey: pinataApiKey, apiSecret: pinataApiSecret }
+      : undefined;
+
+    if (pinataConfig) {
+      console.log('✅ Pinata credentials found - will upload to IPFS');
+    } else {
+      console.log('ℹ️ No Pinata credentials - HFS only');
+    }
 
     const certificatePackage = await generateAndUploadCertificate(
       {
@@ -254,20 +267,38 @@ serve(async (req) => {
       client,
       privateKey,
       hmacSecret,
-      baseUrl
+      baseUrl,
+      pinataConfig
     );
 
     console.log('✅ Certificate package created:');
     console.log(`   Image HFS ID: ${certificatePackage.imageFileId}`);
     console.log(`   Metadata HFS ID: ${certificatePackage.metadataFileId}`);
+    if (certificatePackage.ipfsImageHash) {
+      console.log(`   Image IPFS: ${certificatePackage.ipfsImageHash}`);
+      console.log(`   Metadata IPFS: ${certificatePackage.ipfsMetadataHash}`);
+    }
 
-    // Prepare NFT metadata bytes (on-chain) - minimal, just points to HFS files
-    const nftMetadataBytes = new TextEncoder().encode(
-      JSON.stringify({
-        hfs_metadata_file_id: certificatePackage.metadataFileId,
-        image_hfs_file_id: certificatePackage.imageFileId,
-      })
-    );
+    // Prepare NFT metadata bytes (on-chain)
+    // Hedera has 100-byte limit, so we store only the IPFS metadata hash
+    // HashScan will fetch the full metadata from IPFS using this hash
+    let onChainMetadata: string;
+
+    if (certificatePackage.ipfsMetadataHash) {
+      // Use IPFS hash (compact, HashScan can fetch full metadata)
+      onChainMetadata = certificatePackage.ipfsMetadataHash;
+      console.log(`📝 Using IPFS metadata hash on-chain: ${onChainMetadata}`);
+    } else {
+      // Fallback to HFS (old method, won't display on HashScan)
+      onChainMetadata = JSON.stringify({
+        h: certificatePackage.metadataFileId, // Shortened key
+        i: certificatePackage.imageFileId,
+      });
+      console.log(`📝 Using HFS metadata on-chain (IPFS not available)`);
+    }
+
+    const nftMetadataBytes = new TextEncoder().encode(onChainMetadata);
+    console.log(`📏 On-chain metadata size: ${nftMetadataBytes.length} bytes (limit: 100)`);
 
     // Mint NFT
     console.log('🪙 Minting NFT...');
@@ -356,6 +387,12 @@ serve(async (req) => {
       metadata_hfs_file_id: certificatePackage.metadataFileId,
       metadata_uri: `hfs://${certificatePackage.metadataFileId}`,
       image_uri: `hfs://${certificatePackage.imageFileId}`,
+
+      // IPFS/Pinata storage (if available)
+      ipfs_image_hash: certificatePackage.ipfsImageHash,
+      ipfs_image_url: certificatePackage.ipfsImageUrl,
+      ipfs_metadata_hash: certificatePackage.ipfsMetadataHash,
+      ipfs_metadata_url: certificatePackage.ipfsMetadataUrl,
 
       // SVG content (stored in database for immediate display)
       svg_content: certificatePackage.svgContent,
