@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CourseCard } from '../CourseCard';
 import { Flame, TrendingUp, Award, BookOpen, Trophy, BarChart3, Activity, Star } from 'lucide-react';
 import { useUserEnrollments, useCompletedCourses } from '../../hooks/useEnrollment';
@@ -9,12 +10,8 @@ import { StreakCalendar } from '../dashboard/StreakCalendar';
 import { ProgressChart } from '../dashboard/ProgressChart';
 import { useWallet } from '../../contexts/WalletContext';
 
-interface DashboardProps {
-  onCourseClick: (courseId: string) => void;
-  onNavigate: (page: string) => void;
-}
-
-export function Dashboard({ onCourseClick, onNavigate }: DashboardProps) {
+export function Dashboard() {
+  const navigate = useNavigate();
   const { user } = useWallet();
   const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'activity'>('overview');
 
@@ -236,7 +233,7 @@ export function Dashboard({ onCourseClick, onNavigate }: DashboardProps) {
                         course={componentCourse}
                         enrolled={true}
                         progress={enrollment.progress_percentage || 0}
-                        onEnroll={() => onCourseClick(enrollment.course_id)}
+                        onEnroll={() => navigate(`/courses/${enrollment.course_id}`)}
                       />
                     );
                   })}
@@ -249,7 +246,7 @@ export function Dashboard({ onCourseClick, onNavigate }: DashboardProps) {
                   <h3 className="mb-2">No courses yet</h3>
                   <p className="text-gray-600 mb-6">Start your learning journey by enrolling in a course</p>
                   <button
-                    onClick={() => onNavigate('courses')}
+                    onClick={() => navigate('/courses')}
                     className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white px-8 py-3 rounded-full shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(0,132,199,0.4),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] transition-all"
                   >
                     Browse Courses
@@ -274,7 +271,7 @@ export function Dashboard({ onCourseClick, onNavigate }: DashboardProps) {
                         enrolled={true}
                         progress={100}
                         isCompleted={true}
-                        onEnroll={() => onCourseClick(enrollment.course_id)}
+                        onEnroll={() => navigate(`/courses/${enrollment.course_id}`)}
                       />
                     );
                   })}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { type Course } from '../../lib/mockData';
+import { useParams, useNavigate } from 'react-router-dom';
 import { LessonViewer } from '../course/LessonViewer';
 import { Button } from '../ui/button';
 import { ArrowLeft, CheckCircle, Lock, Award } from 'lucide-react';
@@ -10,27 +10,29 @@ import { XPNotification } from '../XPNotification';
 import { LevelUpModal } from '../LevelUpModal';
 import { CourseCompleteModal } from '../CourseCompleteModal';
 import { useWallet } from '../../contexts/WalletContext';
+import { useCourse } from '../../hooks/useCourses';
+import { adaptCourseForComponent } from '../../lib/adapters/courseAdapter';
 
-interface CourseViewerProps {
-  course: Course;
-  onBack: () => void;
-  onCourseComplete: () => void;
-}
-
-export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerProps) {
+export function CourseViewer() {
+  const { courseId } = useParams<{ courseId: string }>();
+  const navigate = useNavigate();
   const { user } = useWallet();
 
-  // Fetch lessons from database (with hardcoded fallback)
-  const { lessons, isLoading: lessonsLoading } = useLessons(course.id);
+  // Fetch course data and lessons from database
+  const { course: dbCourse, isLoading: courseLoading } = useCourse(courseId || '');
+  const { lessons, isLoading: lessonsLoading } = useLessons(courseId || '');
+
+  // Adapt database course to component format
+  const course = dbCourse ? adaptCourseForComponent(dbCourse) : null;
 
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [showSidebar, setShowSidebar] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Lesson progress hooks
-  const { completedLessonIds, isLoading: loadingCompleted } = useCompletedLessons(user?.id, course.id);
+  const { completedLessonIds, isLoading: loadingCompleted } = useCompletedLessons(user?.id, courseId || '');
   const { complete, isCompleting } = useCompleteLesson();
-  const { progress: courseProgress } = useCourseProgress(user?.id, course.id);
+  const { progress: courseProgress } = useCourseProgress(user?.id, courseId || '');
   const { updateLesson } = useUpdateCurrentLesson();
 
   // Local state for completed lessons (sync with database)
@@ -121,7 +123,7 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
               This course is currently being developed. Check back soon to start learning!
             </p>
             <Button
-              onClick={onBack}
+              onClick={() => navigate('/dashboard')}
               className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] rounded-full px-8 py-4 shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]"
             >
               Back to Courses
@@ -255,13 +257,46 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
     }
   };
 
+  // Loading state
+  if (courseLoading || lessonsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0084C7] via-[#00a8e8] to-[#0084C7]">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-white mb-4"></div>
+          <p className="text-white text-lg">Loading course...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state - course not found
+  if (!course) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0084C7] via-[#00a8e8] to-[#0084C7]">
+        <div className="bg-white/90 rounded-3xl shadow-2xl p-12 max-w-md text-center">
+          <div className="text-6xl mb-6">📚</div>
+          <h2 className="text-3xl font-bold text-[#0084C7] mb-4">Course Not Found</h2>
+          <p className="text-gray-600 mb-8">
+            The course you're looking for doesn't exist or has been removed.
+          </p>
+          <Button
+            onClick={() => navigate('/courses')}
+            className="bg-[#0084C7] text-white px-8 py-3 rounded-full"
+          >
+            Browse Courses
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe] py-12">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
           <Button
-            onClick={onBack}
+            onClick={() => navigate('/dashboard')}
             className="mb-4 bg-white text-[#0084C7] hover:bg-gray-50 rounded-full px-6 shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -403,7 +438,7 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
                   </div>
                 </div>
                 <Button
-                  onClick={onBack}
+                  onClick={() => navigate('/dashboard')}
                   className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] rounded-full px-10 py-4 shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]"
                 >
                   Back to Courses
@@ -441,9 +476,9 @@ export function CourseViewer({ course, onBack, onCourseComplete }: CourseViewerP
         isOpen={showCourseCompleteModal}
         onClose={() => {
           setShowCourseCompleteModal(false);
-          onCourseComplete();
+          navigate('/dashboard');
         }}
-        courseName={course.title}
+        courseName={course?.title || ''}
       />
     </div>
   );

@@ -1,16 +1,12 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { useWallet } from '../contexts/WalletContext';
 import { toast } from 'sonner@2.0.3';
 import { useUserStats } from '../hooks/useStats';
 
-
-interface NavigationProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
-}
-
-export function Navigation({ currentPage, onNavigate }: NavigationProps) {
+export function Navigation() {
+  const location = useLocation();
   const { connected, account, accountId, balance, loading, connect, disconnect } = useWallet();
   const { user } = useWallet();
   const { data: stats } = useUserStats(user?.id);
@@ -67,8 +63,8 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <button
-            onClick={() => onNavigate('home')}
+          <Link
+            to="/"
             className="flex items-center gap-3 group"
           >
             <img
@@ -77,40 +73,40 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
               className="h-12 w-auto group-hover:scale-105 transition-transform"
             />
             <span className="hidden md:inline-block text-white text-2xl font-bold tracking-tight">Web3versity</span>
-          </button>
+          </Link>
 
           {/* Navigation Links */}
           {connected && (
             <div className="hidden md:flex items-center gap-2">
               <NavButton
                 label="Dashboard"
-                active={currentPage === 'dashboard'}
-                onClick={() => onNavigate('dashboard')}
+                to="/dashboard"
+                active={location.pathname === '/dashboard'}
               />
               <NavButton
                 label="Courses"
-                active={currentPage === 'courses'}
-                onClick={() => onNavigate('courses')}
+                to="/courses"
+                active={location.pathname === '/courses' || location.pathname.startsWith('/courses/')}
               />
               <NavButton
                 label="Playground"
-                active={currentPage === 'playground'}
-                onClick={() => onNavigate('playground')}
+                to="/playground"
+                active={location.pathname === '/playground'}
               />
               <NavButton
                 label="Community"
-                active={currentPage === 'community'}
-                onClick={() => onNavigate('community')}
+                to="/community"
+                active={location.pathname === '/community'}
               />
               <NavButton
                 label="Faucet"
-                active={currentPage === 'faucet'}
-                onClick={() => onNavigate('faucet')}
+                to="/faucet"
+                active={location.pathname === '/faucet'}
               />
               <NavButton
                 label="Leaderboard"
-                active={currentPage === 'leaderboard'}
-                onClick={() => onNavigate('leaderboard')}
+                to="/leaderboard"
+                active={location.pathname === '/leaderboard'}
               />
             </div>
           )}
@@ -119,8 +115,8 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
           <div className="flex items-center gap-3">
             {connected ? (
               <>
-                <button
-                  onClick={() => onNavigate('profile')}
+                <Link
+                  to="/profile"
                   className="flex items-center gap-3 bg-white/90 rounded-full px-4 py-2 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)] hover:scale-105 transition-transform"
                 >
                   <span className="text-xl">{stats?.avatarEmoji || '👤'}</span>
@@ -139,7 +135,7 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
                       </span>
                     )}
                   </div>
-                </button>
+                </Link>
                 <Button
                   onClick={handleDisconnect}
                   className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm rounded-full px-6 shadow-[0_4px_16px_rgba(0,0,0,0.1)]"
@@ -163,17 +159,17 @@ export function Navigation({ currentPage, onNavigate }: NavigationProps) {
   );
 }
 
-function NavButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function NavButton({ label, to, active }: { label: string; to: string; active: boolean }) {
   return (
-    <button
-      onClick={onClick}
+    <Link
+      to={to}
       className={`px-4 py-2 rounded-full transition-all ${
-        active 
-          ? 'bg-white/90 text-[#0084C7] shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)]' 
+        active
+          ? 'bg-white/90 text-[#0084C7] shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)]'
           : 'text-white/90 hover:bg-white/10'
       }`}
     >
       {label}
-    </button>
+    </Link>
   );
 }

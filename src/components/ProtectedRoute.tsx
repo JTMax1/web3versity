@@ -8,11 +8,11 @@
  */
 
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  onNavigate?: (page: string) => void;
   redirectTo?: string;
 }
 
@@ -21,15 +21,14 @@ interface ProtectedRouteProps {
  *
  * Usage:
  * ```tsx
- * <ProtectedRoute onNavigate={handleNavigate}>
+ * <ProtectedRoute>
  *   <Dashboard />
  * </ProtectedRoute>
  * ```
  */
 export function ProtectedRoute({
   children,
-  onNavigate,
-  redirectTo = 'home',
+  redirectTo = '/',
 }: ProtectedRouteProps) {
   const { isAuthenticated, loading, authLoading } = useAuth();
 
@@ -45,29 +44,9 @@ export function ProtectedRoute({
     );
   }
 
-  // If not authenticated, show message and redirect button
+  // If not authenticated, redirect to home
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0084C7] via-[#00a8e8] to-[#0084C7]">
-        <div className="bg-white/90 rounded-3xl shadow-2xl p-12 max-w-md text-center">
-          <div className="text-6xl mb-6">🔒</div>
-          <h2 className="text-3xl font-bold text-[#0084C7] mb-4">
-            Authentication Required
-          </h2>
-          <p className="text-gray-600 mb-8">
-            Please connect your wallet to access this page.
-          </p>
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate(redirectTo)}
-              className="bg-[#0084C7] text-white px-8 py-3 rounded-full font-semibold hover:bg-[#006ba3] transition-colors shadow-lg"
-            >
-              Go to Home
-            </button>
-          )}
-        </div>
-      </div>
-    );
+    return <Navigate to={redirectTo} replace />;
   }
 
   // User is authenticated, render children

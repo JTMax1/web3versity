@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CourseCard } from '../CourseCard';
 import { CourseSearchBar } from '../CourseSearchBar';
 import { CourseFilters, FilterState } from '../CourseFilters';
@@ -20,19 +21,11 @@ import { Search, AlertCircle } from 'lucide-react';
 import type { Course } from '../../lib/supabase/types';
 
 // ============================================================================
-// Props Interface
-// ============================================================================
-
-interface CourseCatalogProps {
-  onEnroll: (courseId: string) => void;
-  enrolledCourseIds?: string[];
-}
-
-// ============================================================================
 // Course Catalog Component
 // ============================================================================
 
-export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
+export function CourseCatalog() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<FilterState>({
@@ -94,7 +87,7 @@ export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
 
       if (isAlreadyEnrolled) {
         // User is already enrolled, just navigate to the course
-        onEnroll(courseId);
+        navigate(`/courses/${courseId}`);
         return;
       }
 
@@ -121,7 +114,7 @@ export function CourseCatalog({ onEnroll }: CourseCatalogProps) {
       if (result.success) {
         toast.success('Enrolled successfully!');
         // Navigate to course
-        onEnroll(courseId);
+        navigate(`/courses/${courseId}`);
       } else {
         toast.error(result.error || 'Enrollment failed');
       }
