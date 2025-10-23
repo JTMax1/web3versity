@@ -67,3 +67,15 @@ DOCUMENTATION/04-Implementation/Phase-2/COMPLETE_ENROLLMENT_INTEGRATION.md
 DOCUMENTATION/04-Implementation/Phase-2/TESTING_PHASE_2_TASK_1.md
 DOCUMENTATION/04-Implementation/USER_ADAPTER_FIX.md
 DOCUMENTATION/04-Implementation/Phase-2/USER_ADAPTER_FIX.md
+DOCUMENTATION/07-Courses/COURSE-EXPANSION-STRATEGY.md
+DOCUMENTATION/07-Courses/LESSON-PROGRESSION-FIX-SUMMARY.md
+DOCUMENTATION/07-Courses/LESSON-PROGRESSION-ROOT-CAUSE-FIX.md
+DOCUMENTATION/04-Implementation/fix-award-xp-function.sql
+DOCUMENTATION/04-Implementation/SUPABASE-CLI-SETUP-GUIDE.md
+supabase/migrations/019_mock_test_user.sql
+.gitignore
+supabase/migrations/020_enroll_test_user_all_courses.sql
+supabase/migrations/023_hide_courses_without_lessons.sql
+analyze_course_lesson_counts.sql
+supabase/migrations/021_update_course_lesson_counts.sql
+supabase/migrations/022_clear_all_user_data.sql
