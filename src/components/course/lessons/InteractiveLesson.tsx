@@ -16,6 +16,11 @@ import { WalletConnectionDemo } from '../interactive/WalletConnectionDemo';
 import { ExplorerGuide } from '../interactive/ExplorerGuide';
 import { PaymentComparison } from '../interactive/PaymentComparison';
 import { ScamDetector } from '../interactive/ScamDetector';
+import { ConsensusAnimation } from '../interactive/ConsensusAnimation';
+import { DeFiProtocolExplorer } from '../interactive/DeFiProtocolExplorer';
+import { HCSUseCaseExplorer } from '../interactive/HCSUseCaseExplorer';
+import { PhishingSimulator } from '../interactive/PhishingSimulator';
+import { YieldCalculator } from '../interactive/YieldCalculator';
 
 interface InteractiveLessonProps {
   content: any;
@@ -60,13 +65,18 @@ export function InteractiveLesson({ content, onComplete, isCompleted = false, is
         return <PaymentComparison />;
       case 'scam_detector':
         return <ScamDetector onInteract={() => setHasInteracted(true)} />;
+      case 'consensus_animation':
+        return <ConsensusAnimation onInteract={() => setHasInteracted(true)} />;
+      case 'defi_protocol_explorer':
+        return <DeFiProtocolExplorer onInteract={() => setHasInteracted(true)} />;
+      case 'hcs_use_case_explorer':
+        return <HCSUseCaseExplorer onInteract={() => setHasInteracted(true)} />;
+      case 'phishing_simulator':
+        return <PhishingSimulator onInteract={() => setHasInteracted(true)} />;
+      case 'yield_calculator':
+        return <YieldCalculator onInteract={() => setHasInteracted(true)} />;
 
       // Missing interactive types that fall back to auto-complete placeholders
-      case 'consensus_animation':
-      case 'defi_protocol_explorer':
-      case 'hcs_use_case_explorer':
-      case 'phishing_simulator':
-      case 'yield_calculator':
       case 'tax_calculator':
       case 'career_explorer':
       case 'play_to_earn_demo':
