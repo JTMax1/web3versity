@@ -73,14 +73,15 @@ export function CourseCard({
   ];
   const hasContent = coursesWithContent.includes(course.id);
 
-  // Courses with practical blockchain lessons
+  // Courses with practical blockchain lessons (all courses from 002-044 now have practicals)
   const coursesWithPractical = [
-    'course_009', // Understanding Transactions
-    'course_014', // Understanding Testnet on Hedera
-    'course_020', // Cross-Border Payments with Crypto
-    'course_024', // Understanding Private Keys & Ownership
-    'course_025', // DeFi Basics for Beginners
-    'course_026', // Understanding DEXs
+    'course_002', 'course_003', 'course_005', 'course_006', 'course_007', 'course_008',
+    'course_009', 'course_011', 'course_012', 'course_013', 'course_014', 'course_015',
+    'course_016', 'course_017', 'course_018', 'course_019', 'course_020', 'course_021',
+    'course_022', 'course_023', 'course_024', 'course_025', 'course_026', 'course_027',
+    'course_028', 'course_029', 'course_030', 'course_031', 'course_032', 'course_033',
+    'course_034', 'course_035', 'course_036', 'course_037', 'course_038', 'course_039',
+    'course_040', 'course_041', 'course_042', 'course_043', 'course_044',
   ];
   const hasPractical = coursesWithPractical.includes(course.id);
 

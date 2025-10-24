@@ -83,12 +83,12 @@ export function CourseViewer() {
 
   // Update current lesson position when changed (but only after initialization AND enrollment)
   useEffect(() => {
-    if (isInitialized && user?.id && courseProgress && lessons[currentLessonIndex]) {
+    if (isInitialized && user?.id && course && courseProgress && lessons[currentLessonIndex]) {
       // Only update if user is actually enrolled (courseProgress exists)
       updateLesson(user.id, course.id, lessons[currentLessonIndex].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLessonIndex, user?.id, course.id, isInitialized]);
+  }, [currentLessonIndex, user?.id, course?.id, isInitialized]);
 
   // Show loading state while fetching lessons
   if (lessonsLoading) {

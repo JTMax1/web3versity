@@ -440,7 +440,7 @@ export const blockchainFundamentalsLessons: LessonContent[] = [
     courseId: 'course_001',
     title: 'Blockchain Knowledge Quiz',
     type: 'quiz',
-    sequence: 6,
+    sequence: 7,
     duration: 5,
     content: {
       questions: [
@@ -496,7 +496,7 @@ export const blockchainFundamentalsLessons: LessonContent[] = [
     courseId: 'course_001',
     title: 'Introduction to Hedera',
     type: 'text',
-    sequence: 7,
+    sequence: 6,
     duration: 6,
     content: {
       sections: [
