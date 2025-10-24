@@ -4,6 +4,7 @@ import { TextLesson } from './lessons/TextLesson';
 import { InteractiveLesson } from './lessons/InteractiveLesson';
 import { QuizLesson } from './lessons/QuizLesson';
 import { PracticalLesson } from './lessons/PracticalLesson';
+import { CodeEditorLesson } from './lessons/CodeEditorLesson';
 
 interface LessonViewerProps {
   lesson: LessonContent;
@@ -25,7 +26,7 @@ export function LessonViewer({ lesson, onComplete, isCompleted = false, isComple
         <div className="flex items-center gap-3 mb-3">
           <div className="w-12 h-12 bg-gradient-to-br from-[#0084C7]/10 to-[#00a8e8]/20 rounded-2xl flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
             <span className="text-2xl">
-              {lesson.type === 'text' ? '📖' : lesson.type === 'quiz' ? '✍️' : '🎮'}
+              {lesson.type === 'text' ? '📖' : lesson.type === 'quiz' ? '✍️' : lesson.type === 'code_editor' ? '💻' : '🎮'}
             </span>
           </div>
           <div>
@@ -36,7 +37,7 @@ export function LessonViewer({ lesson, onComplete, isCompleted = false, isComple
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <span>⏱️ {lesson.duration} min</span>
           <span>•</span>
-          <span className="capitalize">{lesson.type}</span>
+          <span className="capitalize">{lesson.type === 'code_editor' ? 'Code Editor' : lesson.type}</span>
         </div>
       </div>
 
@@ -60,6 +61,14 @@ export function LessonViewer({ lesson, onComplete, isCompleted = false, isComple
         )}
         {lesson.type === 'quiz' && (
           <QuizLesson
+            content={lesson.content}
+            onComplete={onComplete}
+            isCompleted={isCompleted}
+            isCompleting={isCompleting}
+          />
+        )}
+        {lesson.type === 'code_editor' && (
+          <CodeEditorLesson
             content={lesson.content}
             onComplete={onComplete}
             isCompleted={isCompleted}
