@@ -29,59 +29,26 @@ export function CourseCard({
 
   // Courses with full content available
   const coursesWithContent = [
-    'course_001', // Hedera Fundamentals
-    'course_004', // Wallet Security Best Practices
-    'course_006', // Understanding NFTs on Hedera (Developer)
-    'course_008', // DeFi Basics
-    'course_009', // Understanding Transactions (Explorer)
-    'course_010', // Understanding NFTs - Beginner (Explorer)
-    'course_011', // Understanding NFTs - Intermediate (Explorer)
-    'course_012', // Understanding NFTs - Advanced (Explorer)
-    'course_013', // Introduction to DApps (Explorer)
-    'course_014', // Understanding Testnet on Hedera (Explorer)
-    'course_015', // Understanding PreviewNet on Hedera (Explorer)
-    'course_016', // Understanding Mainnet (Explorer)
-    'course_017', // Understanding Devnet (Explorer)
-    'course_018', // DApp Interaction (Explorer)
-    'course_019', // Understanding Blockchain Explorers (Explorer)
-    // New Explorer Courses (020-044)
-    'course_020', // Cross-Border Payments with Crypto
-    'course_021', // Avoiding Crypto Scams in Africa
-    'course_022', // Understanding Stablecoins
-    'course_023', // From Mobile Money to Crypto
-    'course_024', // Understanding Private Keys & Ownership
-    'course_025', // DeFi Basics for Beginners
-    'course_026', // Understanding DEXs
-    'course_027', // Crypto Taxes & Regulations in Africa
-    'course_028', // Understanding Hedera Consensus
-    'course_029', // Careers in Web3
-    'course_030', // Understanding Cryptocurrency Basics
-    'course_031', // Digital Identity on Blockchain
-    'course_032', // Understanding DAOs
-    'course_033', // Blockchain Gaming & Play-to-Earn
-    'course_034', // Reading Crypto Charts
-    'course_035', // Understanding Crypto Exchanges
-    'course_036', // Hedera Governing Council
-    'course_037', // Building on Hedera: Use Cases
-    'course_038', // Understanding Consensus Mechanisms
-    'course_039', // Layer 1 vs Layer 2 Scaling
-    'course_040', // Smart Contract Basics (No Coding)
-    'course_041', // Understanding Tokenomics
-    'course_042', // Participating in Crypto Communities
-    'course_043', // Advanced Wallet Security
-    'course_044', // Earning Yield with Crypto
-  ];
+  'course_001', // Blockchain Fundamentals
+  'course_002', // Mobile Money to Crypto
+  'course_003', // Understanding NFTs
+  'course_004', // Avoiding Crypto Scams in Africa
+  'course_005', // DeFi Basics for Everyone
+  'course_006', // Understanding Hedera Consensus Service (HCS)
+  'course_007', // Reading Blockchain Explorers
+  'course_008', // Introduction to Programming for Web3
+  'course_009', // Hedera SDK Essentials
+  'course_010', // Solidity Smart Contracts on Hedera
+  'course_011', // Building a Full DApp on Hedera
+];
+
+  
   const hasContent = coursesWithContent.includes(course.id);
 
   // Courses with practical blockchain lessons (all courses from 002-044 now have practicals)
   const coursesWithPractical = [
-    'course_002', 'course_003', 'course_005', 'course_006', 'course_007', 'course_008',
-    'course_009', 'course_011', 'course_012', 'course_013', 'course_014', 'course_015',
-    'course_016', 'course_017', 'course_018', 'course_019', 'course_020', 'course_021',
-    'course_022', 'course_023', 'course_024', 'course_025', 'course_026', 'course_027',
-    'course_028', 'course_029', 'course_030', 'course_031', 'course_032', 'course_033',
-    'course_034', 'course_035', 'course_036', 'course_037', 'course_038', 'course_039',
-    'course_040', 'course_041', 'course_042', 'course_043', 'course_044',
+    'course_001', 'course_002', 'course_003', 'course_004', 'course_005', 'course_006', 
+    'course_007', 'course_008', 'course_009', 'course_010', 'course_011', 
   ];
   const hasPractical = coursesWithPractical.includes(course.id);
 
