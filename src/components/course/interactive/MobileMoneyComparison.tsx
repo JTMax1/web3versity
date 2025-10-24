@@ -14,17 +14,63 @@ export function MobileMoneyComparison({ content, onInteract }: MobileMoneyCompar
     onInteract();
   };
 
+  // Default comparison data if not provided in content
+  const defaultComparison = [
+    {
+      aspect: "Control & Ownership",
+      mobileMoney: "Controlled by telecom companies (Safaricom, MTN, Airtel). They can freeze your account, reverse transactions, or change fees anytime.",
+      crypto: "YOU control everything with your private key. No company can freeze, limit, or access your funds. True ownership."
+    },
+    {
+      aspect: "Accessibility",
+      mobileMoney: "Need SIM card from specific telecom. Limited to countries where service operates. Requires telecom approval.",
+      crypto: "Only need internet connection. Works globally from any device. No approval needed - completely permissionless."
+    },
+    {
+      aspect: "Transaction Costs",
+      mobileMoney: "Free for small amounts, 1-3% for larger transfers. Fees increase with amount. Cross-border very expensive (7-12%).",
+      crypto: "Fixed ultra-low fee (~$0.0001) regardless of amount. Send ₦100 or ₦10,000,000 - same tiny fee. Cross-border same as local."
+    },
+    {
+      aspect: "Speed",
+      mobileMoney: "Instant for local transfers. Cross-border can take 1-3 days. Subject to network downtime.",
+      crypto: "3-5 seconds globally. Same speed whether sending across the street or across continents. 24/7/365 availability."
+    },
+    {
+      aspect: "Recovery",
+      mobileMoney: "Forgot PIN? Visit agent or call customer service. Wrong recipient? Can request reversal. Company can help if hacked.",
+      crypto: "Lost private key? Funds gone FOREVER - no recovery possible. Wrong address? Transaction irreversible. Full responsibility on you."
+    },
+    {
+      aspect: "Privacy",
+      mobileMoney: "Company knows all your transactions. Can share with government. Your financial data is tracked and stored.",
+      crypto: "Transactions are public on blockchain (transparent) but pseudonymous. No company tracking your spending habits or personal data."
+    },
+    {
+      aspect: "Limits & Restrictions",
+      mobileMoney: "Daily/monthly transaction limits. Withdrawal limits. Can be blocked for 'suspicious activity'. KYC required.",
+      crypto: "No limits on transactions. Send any amount anytime. No one can block you. Optional KYC only on exchanges, not on-chain."
+    }
+  ];
+
+  const comparison = content.comparison || defaultComparison;
+
   return (
     <div className="space-y-6">
       {/* Explanation */}
       <div className="text-center mb-8">
         <h3 className="mb-4">Cryptocurrency vs Mobile Money</h3>
-        <p className="text-gray-600 max-w-2xl mx-auto">{content.explanation}</p>
+        <p className="text-gray-600 max-w-2xl mx-auto">{content.explanation || "Compare how mobile money and cryptocurrency work to understand the key differences."}</p>
+        {content.analogy && (
+          <p className="text-sm text-gray-500 mt-3 italic max-w-2xl mx-auto">
+            💡 {content.analogy}
+          </p>
+        )}
       </div>
 
       {/* Comparison Cards */}
       <div className="space-y-4">
-        {content.comparison.map((item: any, index: number) => {
+        {comparison.map((item: any, index: number) => {
           const isSelected = selectedAspect === index;
 
           return (

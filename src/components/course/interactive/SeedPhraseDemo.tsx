@@ -12,6 +12,17 @@ export function SeedPhraseDemo({ content, onInteract }: SeedPhraseDemoProps) {
   const [copiedWord, setCopiedWord] = useState<number | null>(null);
   const [hasRevealed, setHasRevealed] = useState(false);
 
+  // Default demo words if not provided
+  const defaultDemoWords = [
+    "village", "harvest", "mountain", "river",
+    "sunset", "market", "wisdom", "journal",
+    "laptop", "forest", "ocean", "cloud"
+  ];
+
+  const demoWords = content.demoWords || defaultDemoWords;
+  const explanation = content.explanation || "A seed phrase is a series of 12 or 24 words that serves as a backup for your cryptocurrency wallet. Anyone with these words can access your funds, so they must be kept absolutely secret.";
+  const analogy = content.analogy || "Think of it like the master key to your house - if someone gets it, they can enter anytime and take everything.";
+
   const handleReveal = () => {
     setShowWords(true);
     setHasRevealed(true);
@@ -28,10 +39,10 @@ export function SeedPhraseDemo({ content, onInteract }: SeedPhraseDemoProps) {
       {/* Explanation */}
       <div className="bg-gradient-to-br from-[#0084C7]/5 to-[#00a8e8]/10 rounded-3xl p-6 shadow-[inset_0_2px_8px_rgba(0,132,199,0.1)]">
         <h3 className="mb-4">What is a Seed Phrase?</h3>
-        <p className="text-gray-700 mb-4">{content.explanation}</p>
+        <p className="text-gray-700 mb-4">{explanation}</p>
         <div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)]">
           <p className="text-yellow-900">
-            <strong>💡 {content.analogy}</strong>
+            <strong>💡 {analogy}</strong>
           </p>
         </div>
       </div>
@@ -51,7 +62,7 @@ export function SeedPhraseDemo({ content, onInteract }: SeedPhraseDemoProps) {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {content.demoWords.map((word: string, index: number) => (
+          {demoWords.map((word: string, index: number) => (
             <div
               key={index}
               className={`relative p-4 rounded-2xl transition-all ${

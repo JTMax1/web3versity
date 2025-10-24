@@ -8,13 +8,41 @@ interface StorageComparisonProps {
 export function StorageComparison({ content, onInteract }: StorageComparisonProps) {
   const [selectedMethod, setSelectedMethod] = useState<number | null>(null);
 
+  // Default storage methods if not provided
+  const defaultMethods = [
+    {
+      method: "Write on Paper",
+      safety: "high",
+      pros: ["Offline security", "Simple and free", "Works everywhere"],
+      cons: ["Can be damaged", "Can be lost", "Ink may fade"],
+      recommendation: "✅ GOOD for beginners and amounts under $1000. Store in a safe place."
+    },
+    {
+      method: "Screenshot on Phone",
+      safety: "critical",
+      pros: ["Quick and convenient"],
+      cons: ["Phone gets stolen", "Backs up to cloud", "Very risky"],
+      recommendation: "❌ NEVER DO THIS. Phones get stolen frequently."
+    },
+    {
+      method: "Metal Backup Plate",
+      safety: "very-high",
+      pros: ["Fireproof", "Waterproof", "Very durable"],
+      cons: ["Costs $40-120", "Less convenient"],
+      recommendation: "✅ EXCELLENT for large amounts or long-term storage."
+    }
+  ];
+
+  const methods = content.methods || defaultMethods;
+
   const getSafetyColor = (safety: string) => {
     switch (safety) {
       case 'very-high': return 'bg-green-500';
       case 'high': return 'bg-green-400';
       case 'medium': return 'bg-yellow-400';
       case 'low': return 'bg-orange-400';
-      case 'very-low': return 'bg-red-500';
+      case 'very-low':
+      case 'critical': return 'bg-red-500';
       default: return 'bg-gray-400';
     }
   };
@@ -26,6 +54,7 @@ export function StorageComparison({ content, onInteract }: StorageComparisonProp
       case 'medium': return '⚠️ Moderate';
       case 'low': return '⚠️ Risky';
       case 'very-low': return '❌ Dangerous';
+      case 'critical': return '🚨 Critical Risk';
       default: return 'Unknown';
     }
   };
@@ -43,7 +72,7 @@ export function StorageComparison({ content, onInteract }: StorageComparisonProp
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        {content.methods.map((method: any, index: number) => {
+        {methods.map((method: any, index: number) => {
           const isSelected = selectedMethod === index;
           const safetyColor = getSafetyColor(method.safety);
           
