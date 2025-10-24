@@ -60,6 +60,13 @@ export function InteractiveLesson({ content, onComplete, isCompleted = false, is
         return <PaymentComparison />;
       case 'scam_detector':
         return <ScamDetector />;
+
+      // Missing interactive types that fall back to auto-complete placeholders
+      case 'consensus_animation':
+      case 'defi_protocol_explorer':
+      case 'hcs_use_case_explorer':
+      case 'phishing_simulator':
+      case 'yield_calculator':
       case 'tax_calculator':
       case 'career_explorer':
       case 'play_to_earn_demo':
@@ -67,14 +74,24 @@ export function InteractiveLesson({ content, onComplete, isCompleted = false, is
       case 'exchange_demo':
       case 'council_timeline':
       case 'layer_comparison':
-        // These will be simplified or use existing components
+        // These types are used in migrations but don't have dedicated components yet
+        // Auto-completing after 2 seconds to allow lesson progression
         setTimeout(() => setHasInteracted(true), 2000);
         return <div className="p-8 text-center space-y-4">
-          <h3 className="text-2xl">Interactive Component</h3>
-          <p className="text-muted-foreground">
-            This interactive experience is automatically completing for demonstration purposes.
-            In a full implementation, this would be a rich interactive component.
+          <h3 className="text-2xl">📚 Interactive Component: {content.type.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</h3>
+          <p className="text-muted-foreground mb-4">
+            {content.explanation || 'This interactive experience is automatically completing for demonstration purposes. In a full implementation, this would be a rich interactive component.'}
           </p>
+          {content.analogy && (
+            <div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-4 max-w-2xl mx-auto">
+              <p className="text-yellow-900 text-sm">
+                <strong>💡 {content.analogy}</strong>
+              </p>
+            </div>
+          )}
+          <div className="mt-6 text-sm text-gray-500">
+            ⏱️ Auto-completing in 2 seconds...
+          </div>
         </div>;
       default:
         return <div>Interactive content coming soon</div>;
