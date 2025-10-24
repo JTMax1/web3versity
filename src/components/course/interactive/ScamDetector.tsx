@@ -119,19 +119,30 @@ const scenarios: ScamScenario[] = [
   }
 ];
 
-export const ScamDetector: React.FC = () => {
+interface ScamDetectorProps {
+  onInteract?: () => void;
+}
+
+export const ScamDetector: React.FC<ScamDetectorProps> = ({ onInteract }) => {
   const [currentScenario, setCurrentScenario] = useState(0);
   const [userAnswer, setUserAnswer] = useState<boolean | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [score, setScore] = useState({ correct: 0, total: 0 });
   const [gameComplete, setGameComplete] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   const scenario = scenarios[currentScenario];
 
   const handleAnswer = (answer: boolean) => {
     setUserAnswer(answer);
     setShowExplanation(true);
-    
+
+    // Call onInteract on first answer
+    if (!hasInteracted && onInteract) {
+      setHasInteracted(true);
+      onInteract();
+    }
+
     const isCorrect = answer === scenario.isScam;
     setScore(prev => ({
       correct: prev.correct + (isCorrect ? 1 : 0),

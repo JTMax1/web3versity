@@ -59,7 +59,7 @@ export function InteractiveLesson({ content, onComplete, isCompleted = false, is
       case 'payment_comparison':
         return <PaymentComparison />;
       case 'scam_detector':
-        return <ScamDetector />;
+        return <ScamDetector onInteract={() => setHasInteracted(true)} />;
 
       // Missing interactive types that fall back to auto-complete placeholders
       case 'consensus_animation':
