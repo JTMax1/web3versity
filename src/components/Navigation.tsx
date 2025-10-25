@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from './ui/button';
 import { useWallet } from '../contexts/WalletContext';
@@ -10,18 +10,42 @@ export function Navigation() {
   const { connected, account, accountId, balance, loading, connect, disconnect } = useWallet();
   const { user } = useWallet();
   const { data: stats } = useUserStats(user?.id);
+  const previousConnected = useRef(connected);
 
+  // Show success toast when connection state changes to true
+  useEffect(() => {
+    if (connected && !previousConnected.current) {
+      toast.success('Wallet connected successfully!', {
+        description: `Connected to Hedera Testnet`
+      });
+    }
+    previousConnected.current = connected;
+  }, [connected]);
 
   const handleConnect = async () => {
     try {
       await connect();
-      toast.success('Wallet connected successfully!', {
-        description: `Connected to Hedera Testnet`
-      });
+      // Toast will be shown by useEffect when connected becomes true
     } catch (error: any) {
-      toast.error('Connection failed', {
-        description: error.message || 'Failed to connect wallet'
-      });
+      console.error('Connection error:', error);
+
+      // Only show error if it's not a user rejection
+      if (!error.message?.includes('rejected') && !error.message?.includes('denied')) {
+        // Provide user-friendly error messages
+        let errorMsg = error.message || 'Failed to connect wallet';
+
+        // Simplify WalletConnect errors
+        if (errorMsg.includes('Failed to publish')) {
+          errorMsg = 'Please open your wallet app (HashPack or Blade) and visit this site from within the wallet browser to connect.';
+        } else if (errorMsg.includes('WalletConnect')) {
+          errorMsg = 'Mobile wallet connection requires opening the site from your wallet app browser.';
+        }
+
+        toast.error('Connection failed', {
+          description: errorMsg,
+          duration: 5000
+        });
+      }
     }
   };
 
