@@ -40,6 +40,7 @@ export function CourseCard({
   'course_009', // Hedera SDK Essentials
   'course_010', // Solidity Smart Contracts on Hedera
   'course_011', // Building a Full DApp on Hedera
+  'course_012', // Introduction to Blockchain
 ];
 
   

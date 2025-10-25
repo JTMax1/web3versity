@@ -21,6 +21,10 @@ import { DeFiProtocolExplorer } from '../interactive/DeFiProtocolExplorer';
 import { HCSUseCaseExplorer } from '../interactive/HCSUseCaseExplorer';
 import { PhishingSimulator } from '../interactive/PhishingSimulator';
 import { YieldCalculator } from '../interactive/YieldCalculator';
+import { BlockChainBuilder } from '../interactive/BlockChainBuilder';
+import { TransactionSimulator } from '../interactive/TransactionSimulator';
+import { CentralizedVsDecentralized } from '../interactive/CentralizedVsDecentralized';
+import { BeginnerScamOrLegit } from '../interactive/BeginnerScamOrLegit';
 
 interface InteractiveLessonProps {
   content: any;
@@ -75,6 +79,14 @@ export function InteractiveLesson({ content, onComplete, isCompleted = false, is
         return <PhishingSimulator onInteract={() => setHasInteracted(true)} />;
       case 'yield_calculator':
         return <YieldCalculator onInteract={() => setHasInteracted(true)} />;
+      case 'blockchain_builder':
+        return <BlockChainBuilder onInteract={() => setHasInteracted(true)} />;
+      case 'transaction_simulator':
+        return <TransactionSimulator onInteract={() => setHasInteracted(true)} />;
+      case 'centralized_vs_decentralized':
+        return <CentralizedVsDecentralized onInteract={() => setHasInteracted(true)} />;
+      case 'beginner_scam_or_legit':
+        return <BeginnerScamOrLegit onInteract={() => setHasInteracted(true)} />;
 
       // Missing interactive types that fall back to auto-complete placeholders
       case 'tax_calculator':

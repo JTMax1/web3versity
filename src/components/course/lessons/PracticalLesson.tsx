@@ -51,15 +51,16 @@ export function PracticalLesson({
     setTransactionCompleted(true);
     if (txId) setTransactionId(txId);
     if (scanUrl) setHashScanUrl(scanUrl);
-    toast.success('🎉 Practical Exercise Completed!', {
-      description: 'You\'ve completed the practical lesson!'
+    toast.success('🎉 Transaction Successful!', {
+      description: 'You can now complete the lesson.'
     });
-    // Automatically move to success step
-    setTimeout(() => {
-      setCurrentStep('success');
-      // Award 50 XP for practical lessons
-      onComplete(50);
-    }, 1000);
+    // Move to success step but don't auto-complete
+    setCurrentStep('success');
+  };
+
+  const handleCompleteLesson = () => {
+    // Award 50 XP for practical lessons when user clicks Save & Continue
+    onComplete(50);
   };
 
   const handleTransactionError = (error: string) => {
@@ -253,51 +254,73 @@ export function PracticalLesson({
 
         {/* Success Step */}
         {currentStep === 'success' && (
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-                <Trophy className="w-12 h-12 text-white" />
-              </div>
+          <>
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+              <div className="text-center">
+                <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+                  <Trophy className="w-12 h-12 text-white" />
+                </div>
 
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">{content.successMessage}</h3>
-              <p className="text-gray-600 mb-6">
-                You've successfully completed this practical lesson and earned 50 XP!
-              </p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">{content.successMessage}</h3>
+                <p className="text-gray-600 mb-6">
+                  Click "Save & Continue" below to earn 50 XP and move to the next lesson.
+                </p>
 
-              {transactionId && (
-                <div className="bg-white rounded-2xl p-6 mb-6 shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)]">
-                  <div className="space-y-3 text-left">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Transaction ID:</span>
-                      <span className="font-mono text-sm text-gray-900">
-                        {transactionId.substring(0, 20)}...
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Status:</span>
-                      <span className="text-green-600 font-semibold">✓ Confirmed</span>
+                {transactionId && (
+                  <div className="bg-white rounded-2xl p-6 mb-6 shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)]">
+                    <div className="space-y-3 text-left">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Transaction ID:</span>
+                        <span className="font-mono text-sm text-gray-900">
+                          {transactionId.substring(0, 20)}...
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Status:</span>
+                        <span className="text-green-600 font-semibold">✓ Confirmed</span>
+                      </div>
                     </div>
                   </div>
+                )}
+
+                {hashScanUrl && (
+                  <Button
+                    onClick={() => window.open(hashScanUrl, '_blank')}
+                    variant="outline"
+                    className="rounded-full px-6 mb-4"
+                  >
+                    View on HashScan
+                  </Button>
+                )}
+
+                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-4 border border-yellow-200 mb-6">
+                  <p className="text-sm text-yellow-900">
+                    <strong>🏆 Achievement Unlocked!</strong> You've successfully completed a practical blockchain lesson. Keep learning to unlock more achievements!
+                  </p>
                 </div>
-              )}
-
-              {hashScanUrl && (
-                <Button
-                  onClick={() => window.open(hashScanUrl, '_blank')}
-                  variant="outline"
-                  className="rounded-full px-6 mb-4"
-                >
-                  View on HashScan
-                </Button>
-              )}
-
-              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-4 border border-yellow-200">
-                <p className="text-sm text-yellow-900">
-                  <strong>🏆 Achievement Unlocked!</strong> You've successfully completed a practical blockchain lesson. Keep learning to unlock more achievements!
-                </p>
               </div>
             </div>
-          </div>
+
+            {/* Save & Continue Button - Like other lessons */}
+            <Button
+              onClick={handleCompleteLesson}
+              disabled={isCompleting}
+              className={`w-full py-6 rounded-2xl transition-all duration-200 text-lg font-semibold ${
+                isCompleting
+                  ? 'bg-gray-400 text-white cursor-wait'
+                  : isCompleted
+                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-[0_4px_16px_rgba(34,197,94,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(34,197,94,0.3),inset_2px_2px_8px_rgba(0,0,0,0.2)]'
+                  : 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(0,132,199,0.3),inset_2px_2px_8px_rgba(0,0,0,0.2)]'
+              }`}
+            >
+              <CheckCircle className="w-5 h-5 mr-2" />
+              {isCompleting
+                ? 'Saving...'
+                : isCompleted
+                ? 'Continue to Next Lesson →'
+                : 'Save & Continue'}
+            </Button>
+          </>
         )}
       </div>
 

@@ -66,15 +66,23 @@ export function MobileWalletPrompt({
     setConnectionMethod(determineConnectionMethod());
   }, []);
 
-  const handleConnectClick = () => {
+  const handleConnectClick = async () => {
     if (connectionMethod?.method === 'deep-link') {
-      // Open wallet app (auto-detect or default to metamask)
-      openMobileWallet('auto');
+      // Use WalletConnect for mobile wallet connection
+      try {
+        const { openWalletWithWalletConnect } = await import('@/lib/walletConnect');
+        const walletType = connectionMethod.wallet === 'metamask' ? 'metamask' : 'hashpack';
+        await openWalletWithWalletConnect(walletType as 'hashpack' | 'blade' | 'metamask');
+      } catch (error) {
+        console.error('Failed to open wallet with WalletConnect:', error);
+        // Fallback to old deep link method
+        openMobileWallet('auto');
+      }
     } else if (connectionMethod?.method === 'install-required') {
       // Open install page
       window.open(getWalletInstallUrl('metamask'), '_blank');
     } else {
-      // Can connect directly
+      // Can connect directly (desktop or in wallet browser)
       onConnect?.();
     }
   };
