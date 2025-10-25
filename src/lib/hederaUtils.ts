@@ -67,7 +67,7 @@ export const HEDERA_TESTNET_CONFIG: NetworkConfig = {
   nativeCurrency: {
     name: 'HBAR',
     symbol: 'HBAR',
-    decimals: 8,  // Hedera uses 8 decimals for HBAR
+    decimals: 18,  // Hedera uses 18 decimals for HBAR
   },
   rpcUrls: [env.HEDERA_TESTNET_RPC || 'https://testnet.hashio.io/api'],
   blockExplorerUrls: ['https://hashscan.io/testnet'],
@@ -294,6 +294,12 @@ export async function switchToHederaTestnet(): Promise<boolean> {
  * Connect to Metamask wallet
  * Requests account access and ensures user is on Hedera Testnet
  *
+ * SMART NETWORK HANDLING:
+ * - Auto-detects current network
+ * - Auto-adds Hedera Testnet if not present
+ * - Auto-switches to Hedera Testnet
+ * - Handles all user rejection scenarios gracefully
+ *
  * @returns Wallet connection result with account ID and EVM address
  * @throws Error if connection fails or user rejects
  */
@@ -301,7 +307,9 @@ export async function connectWallet(): Promise<WalletConnectionResult> {
   const provider = getProvider();
 
   try {
-    // Request account access
+    console.log('🔌 Initiating wallet connection...');
+
+    // Step 1: Request account access
     const accounts = await provider.request({
       method: 'eth_requestAccounts',
     }) as string[];
@@ -311,17 +319,63 @@ export async function connectWallet(): Promise<WalletConnectionResult> {
     }
 
     const evmAddress = accounts[0];
+    console.log('✅ Account connected:', evmAddress.substring(0, 10) + '...');
 
-    // Check if on correct network
-    const onTestnet = await isOnHederaTestnet();
+    // Step 2: Check current network
+    const currentChainId = await getCurrentChainId();
+    const onTestnet = currentChainId === HEDERA_TESTNET_CHAIN_ID;
 
-    // If not on Hedera Testnet, prompt to switch
+    console.log(`🌐 Current network: Chain ID ${currentChainId} (Hedera Testnet: ${onTestnet})`);
+
+    // Step 3: If not on Hedera Testnet, add and switch
     if (!onTestnet) {
-      await switchToHederaTestnet();
+      console.log('⚠️ Not on Hedera Testnet. Attempting to add/switch network...');
+
+      try {
+        // First try to switch (in case network already exists)
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: HEDERA_TESTNET_CONFIG.chainId }],
+        });
+        console.log('✅ Switched to Hedera Testnet');
+      } catch (switchError: any) {
+        // Network doesn't exist (error 4902), add it
+        if (switchError.code === 4902) {
+          console.log('📡 Hedera Testnet not found. Adding network to Metamask...');
+
+          try {
+            await provider.request({
+              method: 'wallet_addEthereumChain',
+              params: [HEDERA_TESTNET_CONFIG],
+            });
+            console.log('✅ Hedera Testnet added successfully!');
+          } catch (addError: any) {
+            if (addError.code === 4001) {
+              throw new Error('You need to add Hedera Testnet to use this app. Please try again and approve the network addition.');
+            }
+            throw addError;
+          }
+        } else if (switchError.code === 4001) {
+          // User rejected the switch
+          throw new Error('You need to switch to Hedera Testnet to use this app. Please try again and approve the network switch.');
+        } else {
+          throw switchError;
+        }
+      }
     }
 
-    // Get or derive Hedera account ID
+    // Step 4: Verify we're on correct network now
+    const finalChainId = await getCurrentChainId();
+    if (finalChainId !== HEDERA_TESTNET_CHAIN_ID) {
+      throw new Error('Failed to connect to Hedera Testnet. Please switch your network manually.');
+    }
+
+    // Step 5: Get or derive Hedera account ID
+    console.log('🔍 Fetching Hedera account ID...');
     const accountId = await getHederaAccountId(evmAddress);
+    console.log('✅ Hedera account ID:', accountId);
+
+    console.log('🎉 Wallet connection successful!');
 
     return {
       accountId,
@@ -330,14 +384,23 @@ export async function connectWallet(): Promise<WalletConnectionResult> {
       connected: true,
     };
   } catch (error: any) {
+    console.error('❌ Wallet connection failed:', error);
+
     // User rejected connection
     if (error.code === 4001) {
-      throw new Error('User rejected wallet connection');
+      throw new Error('You rejected the wallet connection. Please try again and approve the connection.');
     }
-    // User rejected network switch
-    if (error.message?.includes('rejected')) {
-      throw new Error('User rejected network switch. Please switch to Hedera Testnet manually.');
+
+    // Already handled errors with custom messages
+    if (error.message?.includes('need to')) {
+      throw error;
     }
+
+    // User rejected network addition/switch (already handled above, but fallback)
+    if (error.message?.includes('rejected') || error.message?.includes('switch')) {
+      throw new Error('Network setup required. Please approve adding Hedera Testnet to your Metamask.');
+    }
+
     throw error;
   }
 }
@@ -477,28 +540,87 @@ export async function getFormattedBalance(address: string): Promise<string> {
 // ============================================================================
 
 /**
- * Submit a transaction on Hedera (simplified)
- * In production, this would use proper transaction signing
+ * Submit a transaction on Hedera
+ * Uses Metamask to sign and broadcast transactions to Hedera Testnet
  *
- * @param fromAccountId - Sender account
- * @param toAccountId - Recipient account
+ * REAL IMPLEMENTATION - Transaction signing via Metamask
+ *
+ * @param fromAccountId - Sender account (EVM address or Hedera account ID)
+ * @param toAccountId - Recipient account (EVM address or Hedera account ID)
  * @param amount - Amount in HBAR
- * @returns Transaction result
+ * @returns Transaction result with hash and explorer URL
  */
 export async function submitTransaction(
   fromAccountId: string,
   toAccountId: string,
   amount: number
 ): Promise<TransactionResult> {
-  // This is a placeholder for transaction submission
-  // In production, you would:
-  // 1. Build transaction using ethers.js or web3.js
-  // 2. Sign with Metamask
-  // 3. Submit to Hedera network
-  // 4. Wait for confirmation
-  // 5. Return transaction ID
+  const provider = getProvider();
 
-  throw new Error('Transaction submission not yet implemented. Use Hedera SDK for production.');
+  try {
+    // Convert accounts to EVM address format if needed
+    let fromAddress = fromAccountId;
+    let toAddress = toAccountId;
+
+    // If sender is in Hedera format (0.0.xxxxx), convert to EVM
+    if (fromAccountId.startsWith('0.0.')) {
+      const accountNum = fromAccountId.split('.')[2];
+      fromAddress = '0x' + parseInt(accountNum).toString(16).padStart(40, '0');
+    }
+
+    // If recipient is in Hedera format (0.0.xxxxx), convert to EVM
+    if (toAccountId.startsWith('0.0.')) {
+      const accountNum = toAccountId.split('.')[2];
+      toAddress = '0x' + parseInt(accountNum).toString(16).padStart(40, '0');
+    }
+
+    // Convert HBAR to wei (1 HBAR = 10^18 wei)
+    const amountInWei = BigInt(Math.floor(amount * 1e18)).toString(16);
+
+    // Build transaction parameters
+    const txParams = {
+      from: fromAddress,
+      to: toAddress,
+      value: '0x' + amountInWei,
+      gas: '0x5208', // 21000 gas for simple transfer
+    };
+
+    console.log('🚀 Submitting transaction via Metamask...');
+
+    // Request user to sign transaction
+    const txHash = await provider.request({
+      method: 'eth_sendTransaction',
+      params: [txParams],
+    }) as string;
+
+    console.log('✅ Transaction submitted:', txHash);
+
+    // Wait for confirmation
+    let attempts = 0;
+    const maxAttempts = 30;
+    let receipt = null;
+
+    while (!receipt && attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      receipt = await provider.request({
+        method: 'eth_getTransactionReceipt',
+        params: [txHash],
+      });
+      attempts++;
+    }
+
+    const success = receipt && (receipt.status === '0x1' || receipt.status === 1);
+
+    return {
+      transactionId: txHash,
+      status: success ? 'success' : 'failed',
+      explorerUrl: getHashScanUrl(txHash),
+      timestamp: Date.now(),
+    };
+  } catch (error: any) {
+    console.error('Transaction submission failed:', error);
+    throw new Error(parseMetamaskError(error));
+  }
 }
 
 // ============================================================================

@@ -16,6 +16,12 @@ import {
   getUserProfile,
   AuthenticationError,
 } from '@/lib/auth/wallet-auth';
+import {
+  isMobileDevice,
+  isInWalletBrowser,
+  determineConnectionMethod,
+  connectWithBestMethod,
+} from '@/lib/mobileWallet';
 import type { User } from '@/lib/supabase/types';
 
 interface WalletState {
@@ -59,6 +65,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, loading: true, error: null, authLoading: true, authError: null }));
 
     try {
+      // 0. Check if we can connect (handles mobile deep linking)
+      const canConnect = await connectWithBestMethod();
+      if (!canConnect) {
+        // User was redirected to install wallet or open wallet app
+        setState(prev => ({ ...prev, loading: false }));
+        return;
+      }
+
       // 1. Connect Metamask wallet
       const result = await connectMetamask();
 
@@ -208,13 +222,27 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!detectMetamask() || !state.connected) return;
 
-    const cleanup = listenToChainChanges((chainId) => {
-      // Chain changed, refresh connection
-      connect();
+    const cleanup = listenToChainChanges(async (chainIdHex) => {
+      const chainId = parseInt(chainIdHex, 16);
+      const isHederaTestnet = chainId === 296;
+
+      console.log(`🌐 Network changed to Chain ID ${chainId}`);
+
+      if (!isHederaTestnet) {
+        console.warn('⚠️ Switched away from Hedera Testnet. Some features may not work.');
+        // Optionally prompt user to switch back
+        // For now, just refresh connection which will attempt to switch back
+        connect();
+      } else {
+        console.log('✅ On Hedera Testnet');
+        // Just refresh balance and user data
+        refreshBalance();
+        refreshUser();
+      }
     });
 
     return cleanup;
-  }, [state.connected, connect]);
+  }, [state.connected, connect, refreshBalance, refreshUser]);
 
   return (
     <WalletContext.Provider value={{ ...state, connect, disconnect, refreshBalance, refreshUser }}>

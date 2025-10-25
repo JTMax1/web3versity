@@ -51,9 +51,11 @@ export interface TransactionHistoryItem {
  * Send HBAR from user's wallet to a recipient
  *
  * This function uses the user's connected wallet (Metamask/WalletConnect) to sign
- * the transaction. The transaction is executed on Hedera Testnet.
+ * the transaction. The transaction is executed on Hedera Testnet via JSON-RPC.
  *
- * @param senderAccountId - Sender's Hedera account ID
+ * REAL IMPLEMENTATION - Uses Metamask to sign transactions
+ *
+ * @param senderAccountId - Sender's Hedera account ID or EVM address
  * @param recipientId - Recipient's Hedera account ID (format: 0.0.xxxxx)
  * @param amount - Amount in HBAR (not tinybars)
  * @param memo - Optional memo/message for the transaction
@@ -68,6 +70,14 @@ export async function sendHBAR(
   userId?: string
 ): Promise<TransactionResult> {
   try {
+    // Check if Metamask is available
+    if (!window.ethereum) {
+      return {
+        success: false,
+        error: 'Metamask not detected. Please install Metamask to send transactions.',
+      };
+    }
+
     // Validate recipient account ID format
     if (!isValidAccountId(recipientId)) {
       return {
@@ -84,24 +94,7 @@ export async function sendHBAR(
       };
     }
 
-    // Check if user has sufficient balance (we'll get balance from wallet context)
-    // Note: Balance check should be done in the component before calling this function
-
-    // Create transfer transaction
-    const transaction = new TransferTransaction()
-      .addHbarTransfer(AccountId.fromString(senderAccountId), Hbar.fromTinybars(-hbarToTinybars(amount)))
-      .addHbarTransfer(AccountId.fromString(recipientId), Hbar.fromTinybars(hbarToTinybars(amount)));
-
-    // Add memo if provided
-    if (memo) {
-      transaction.setTransactionMemo(memo);
-    }
-
-    // IMPORTANT: Transaction signing must happen via wallet
-    // For Metamask/WalletConnect, we need to use HashConnect or similar
-    // This is a placeholder - actual implementation depends on wallet integration
-
-    console.log('⚠️ Transaction signing via wallet not yet implemented');
+    console.log('🚀 Sending HBAR transaction via Metamask...');
     console.log('Transaction details:', {
       from: senderAccountId,
       to: recipientId,
@@ -109,42 +102,190 @@ export async function sendHBAR(
       memo,
     });
 
-    // For now, return a simulated response
-    // TODO: Implement actual wallet signing and transaction execution
-    const simulatedTxId = `${senderAccountId}@${Date.now()}.${Math.floor(Math.random() * 1000000000)}`;
+    // Get sender's EVM address
+    const accounts = await window.ethereum.request({
+      method: 'eth_requestAccounts',
+    }) as string[];
 
-    // Log transaction in database
+    if (!accounts || accounts.length === 0) {
+      return {
+        success: false,
+        error: 'No wallet account found. Please connect your wallet.',
+      };
+    }
+
+    const fromAddress = accounts[0];
+
+    // Convert Hedera account ID (0.0.xxxxx) to EVM address format for recipient
+    // For testnet, we can use the account ID directly as Hedera supports both formats
+    let toAddress: string;
+
+    if (recipientId.startsWith('0.0.')) {
+      // Convert Hedera account ID to EVM address
+      // Format: 0.0.xxxxx -> extract xxxxx and convert to hex address
+      const accountNum = recipientId.split('.')[2];
+      toAddress = '0x' + parseInt(accountNum).toString(16).padStart(40, '0');
+    } else if (recipientId.startsWith('0x')) {
+      // Already in EVM format
+      toAddress = recipientId;
+    } else {
+      return {
+        success: false,
+        error: 'Invalid recipient address format',
+      };
+    }
+
+    // Convert HBAR to wei (1 HBAR = 10^18 wei in EVM context)
+    const amountInWei = BigInt(Math.floor(amount * 1e18)).toString(16);
+
+    // Prepare transaction parameters
+    const txParams: any = {
+      from: fromAddress,
+      to: toAddress,
+      value: '0x' + amountInWei,
+      gas: '0x5208', // 21000 gas for simple transfer
+    };
+
+    // Note: Hedera doesn't support memo in standard EVM transfers
+    // Memo would require a smart contract call or Hedera SDK transaction
+    if (memo) {
+      console.warn('⚠️ Memo not supported in EVM-style transfers. Use Hedera SDK for memo support.');
+    }
+
+    // Log pending transaction to database
+    let dbTransactionId: string | null = null;
     if (userId) {
-      const { error: dbError } = await supabase
+      const { data: dbTx, error: dbError } = await supabase
         .from('payment_transactions')
         .insert({
           user_id: userId,
-          transaction_id: simulatedTxId,
-          from_account: senderAccountId,
+          transaction_id: 'pending',
+          from_account: fromAddress,
           to_account: recipientId,
           amount: amount,
           transaction_type: 'transfer',
-          status: 'success',
+          status: 'pending',
           memo: memo || null,
-        });
+        })
+        .select('id')
+        .single();
 
       if (dbError) {
         console.error('Failed to log transaction to database:', dbError);
+      } else if (dbTx) {
+        dbTransactionId = dbTx.id;
       }
     }
 
+    // Send transaction via Metamask
+    console.log('⏳ Requesting Metamask signature...');
+    const txHash = await window.ethereum.request({
+      method: 'eth_sendTransaction',
+      params: [txParams],
+    }) as string;
+
+    console.log('✅ Transaction sent! Hash:', txHash);
+
+    // Update database with transaction hash
+    if (userId && dbTransactionId) {
+      await supabase
+        .from('payment_transactions')
+        .update({
+          transaction_id: txHash,
+          status: 'pending',
+        })
+        .eq('id', dbTransactionId);
+    }
+
+    // Wait for transaction confirmation (poll for receipt)
+    console.log('⏳ Waiting for transaction confirmation...');
+    const receipt = await waitForTransactionReceipt(txHash);
+
+    // Check transaction status
+    const success = receipt && (receipt.status === '0x1' || receipt.status === 1);
+
+    // Update database with final status
+    if (userId && dbTransactionId) {
+      await supabase
+        .from('payment_transactions')
+        .update({
+          status: success ? 'success' : 'failed',
+        })
+        .eq('id', dbTransactionId);
+    }
+
+    if (!success) {
+      return {
+        success: false,
+        error: 'Transaction failed. Please check HashScan for details.',
+        transactionId: txHash,
+        hashScanUrl: generateHashScanUrl(txHash),
+      };
+    }
+
+    console.log('🎉 Transaction confirmed!');
+
     return {
       success: true,
-      transactionId: simulatedTxId,
-      hashScanUrl: generateHashScanUrl(simulatedTxId),
+      transactionId: txHash,
+      hashScanUrl: generateHashScanUrl(txHash),
     };
-  } catch (error) {
-    console.error('Transaction failed:', error);
+  } catch (error: any) {
+    console.error('❌ Transaction failed:', error);
+
+    // Handle Metamask user rejection
+    if (error.code === 4001) {
+      return {
+        success: false,
+        error: 'Transaction rejected by user',
+      };
+    }
+
+    // Handle insufficient funds
+    if (error.message?.includes('insufficient funds')) {
+      return {
+        success: false,
+        error: 'Insufficient funds to complete transaction',
+      };
+    }
+
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Transaction failed',
+      error: error.message || 'Transaction failed',
     };
   }
+}
+
+/**
+ * Wait for transaction receipt (confirmation)
+ * Polls for up to 30 seconds
+ *
+ * @param txHash - Transaction hash
+ * @returns Transaction receipt or null if timeout
+ */
+async function waitForTransactionReceipt(txHash: string, maxAttempts = 30): Promise<any> {
+  if (!window.ethereum) return null;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const receipt = await window.ethereum.request({
+        method: 'eth_getTransactionReceipt',
+        params: [txHash],
+      });
+
+      if (receipt) {
+        return receipt;
+      }
+
+      // Wait 1 second before next attempt
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      console.error('Error fetching transaction receipt:', error);
+    }
+  }
+
+  console.warn('⚠️ Transaction receipt not found after 30 seconds');
+  return null;
 }
 
 /**
