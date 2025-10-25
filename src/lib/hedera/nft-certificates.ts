@@ -184,7 +184,7 @@ export async function associateToken(
  * @param operatorId - Operator account (treasury)
  * @param operatorKey - Operator private key
  * @param hmacSecret - Platform HMAC secret for signatures
- * @param baseUrl - Base URL for verification (e.g., "https://web3versity.app")
+ * @param baseUrl - Base URL for verification (e.g., "https://web3versity.netlify.app")
  * @returns NFT minting result with HFS file IDs
  */
 export async function mintCertificateNFT(
@@ -194,7 +194,7 @@ export async function mintCertificateNFT(
   operatorId: string,
   operatorKey: string,
   hmacSecret: string,
-  baseUrl: string = 'https://web3versity.app'
+  baseUrl: string = 'https://web3versity.netlify.app'
 ): Promise<NFTCertificateResult> {
   console.log('🎓 Minting certificate NFT:', certificateData.certificateNumber);
 

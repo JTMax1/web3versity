@@ -196,7 +196,7 @@ export async function createMetadataJsonAndUpload(
  * @param client - Hedera client
  * @param privateKey - Operator private key
  * @param hmacSecret - Platform HMAC secret
- * @param baseUrl - Base URL for verification (e.g., "https://web3versity.app")
+ * @param baseUrl - Base URL for verification (e.g., "https://web3versity.netlify.app")
  * @returns { imageFileId, metadataFileId, platformSignature, svgSize }
  */
 export async function generateAndUploadCertificate(
