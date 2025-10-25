@@ -1,12 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Sparkles, Rocket, Trophy, Code } from 'lucide-react';
+import { StartLearningModal } from '../modals/StartLearningModal';
 
-interface LandingPageProps {
-  onGetStarted: () => void;
-}
+export function LandingPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-export function LandingPage({ onGetStarted }: LandingPageProps) {
+  // Check if user is first-time visitor
+  useEffect(() => {
+    const hasStartedLearning = localStorage.getItem('hasStartedLearning');
+    // Don't auto-open modal for now - only when user clicks button
+  }, []);
+
+  const handleStartLearning = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe]">
       {/* Hero Section */}
@@ -30,13 +42,13 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button
-              onClick={onGetStarted}
+              onClick={handleStartLearning}
               className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] rounded-full px-10 py-6 text-lg shadow-[0_8px_32px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_12px_48px_rgba(0,132,199,0.4),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] transition-all duration-300 hover:scale-105"
             >
               Start Learning Free
             </Button>
             <Button
-              onClick={onGetStarted}
+              onClick={handleStartLearning}
               className="bg-white text-[#0084C7] hover:bg-gray-50 rounded-full px-10 py-6 text-lg shadow-[0_8px_32px_rgba(0,0,0,0.1),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)] hover:shadow-[0_12px_48px_rgba(0,0,0,0.15),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)] transition-all duration-300"
             >
               View Courses
@@ -148,6 +160,9 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
         </div>
       </section>
+
+      {/* Start Learning Modal */}
+      <StartLearningModal isOpen={isModalOpen} onClose={handleCloseModal} />
     </div>
   );
 }
