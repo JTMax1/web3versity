@@ -184,7 +184,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   // Auto-reconnect on mount
   useEffect(() => {
     const autoConnect = async () => {
-      if (!detectMetamask()) return;
+      // Check if any Web3 wallet is available (not just Metamask)
+      if (typeof window === 'undefined' || !window.ethereum) return;
 
       const wasConnected = localStorage.getItem('walletConnected') === 'true';
       if (!wasConnected) return;
@@ -204,7 +205,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Listen to account changes
   useEffect(() => {
-    if (!detectMetamask() || !state.connected) return;
+    // Check if any Web3 wallet is available (not just Metamask)
+    if (typeof window === 'undefined' || !window.ethereum || !state.connected) return;
 
     const cleanup = listenToAccountChanges((accounts) => {
       if (accounts.length === 0) {
@@ -220,7 +222,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Listen to chain changes
   useEffect(() => {
-    if (!detectMetamask() || !state.connected) return;
+    // Check if any Web3 wallet is available (not just Metamask)
+    if (typeof window === 'undefined' || !window.ethereum || !state.connected) return;
 
     const cleanup = listenToChainChanges(async (chainIdHex) => {
       const chainId = parseInt(chainIdHex, 16);

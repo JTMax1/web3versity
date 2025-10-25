@@ -107,22 +107,50 @@ export function detectMetamask(): boolean {
 }
 
 /**
+ * Detect if ANY Web3 wallet is installed
+ * Supports: Metamask, HashPack, Blade, Kabila, Trust, Coinbase, and any wallet with ethereum provider
+ * @returns true if any wallet with ethereum provider is detected
+ */
+export function detectWallet(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !!(window.ethereum);
+}
+
+/**
  * Check if wallet is supported
- * @returns true if Metamask is installed
+ * @returns true if any Web3 wallet is installed
  */
 export function isWalletSupported(): boolean {
-  return detectMetamask();
+  return detectWallet();
 }
 
 /**
  * Get the Ethereum provider
- * @throws Error if Metamask is not installed
+ * @throws Error if no Web3 wallet is installed
  */
 function getProvider() {
-  if (!detectMetamask()) {
-    throw new Error('Metamask is not installed. Please install Metamask to continue.');
+  if (!detectWallet()) {
+    throw new Error('No Web3 wallet detected. Please install Metamask, HashPack, Blade, or any compatible wallet.');
   }
   return window.ethereum!;
+}
+
+/**
+ * Get the name of the detected wallet
+ * @returns Wallet name or 'unknown'
+ */
+export function getWalletName(): string {
+  if (typeof window === 'undefined' || !window.ethereum) return 'none';
+
+  if (window.ethereum.isMetaMask) return 'Metamask';
+  if ((window.ethereum as any).isHashPack) return 'HashPack';
+  if ((window.ethereum as any).isBlade) return 'Blade Wallet';
+  if ((window.ethereum as any).isKabila) return 'Kabila Wallet';
+  if ((window.ethereum as any).isTrust) return 'Trust Wallet';
+  if ((window.ethereum as any).isCoinbaseWallet) return 'Coinbase Wallet';
+  if ((window.ethereum as any).isTokenPocket) return 'TokenPocket';
+
+  return 'Web3 Wallet';
 }
 
 // ============================================================================

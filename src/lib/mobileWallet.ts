@@ -74,18 +74,51 @@ export function isMetamaskMobile(): boolean {
 
 /**
  * Check if user is in any wallet's in-app browser
+ * Supports: Metamask, HashPack, Blade, Kabila, and ANY wallet with ethereum provider
  */
 export function isInWalletBrowser(): boolean {
   if (typeof window === 'undefined') return false;
 
-  // Check for common wallet in-app browsers
+  // First check if there's any ethereum provider
+  if (!window.ethereum) return false;
+
+  // If on mobile with ethereum provider, likely in wallet browser
+  if (isMobileDevice()) {
+    return true;
+  }
+
+  // On desktop, check for specific wallet identifiers
   return !!(
-    window.ethereum &&
-    (window.ethereum.isMetaMask ||
-     (window.ethereum as any).isHashPack ||
-     (window.ethereum as any).isBlade ||
-     (window.ethereum as any).isKabila)
+    window.ethereum.isMetaMask ||
+    (window.ethereum as any).isHashPack ||
+    (window.ethereum as any).isBlade ||
+    (window.ethereum as any).isKabila ||
+    (window.ethereum as any).isWalletConnect ||
+    (window.ethereum as any).isCoinbaseWallet ||
+    (window.ethereum as any).isTrust ||
+    (window.ethereum as any).isTokenPocket
   );
+}
+
+/**
+ * Detect which wallet is currently active
+ * Returns the wallet name or 'unknown' if can't determine
+ */
+export function detectActiveWallet(): string {
+  if (typeof window === 'undefined' || !window.ethereum) return 'none';
+
+  // Check for specific wallet identifiers
+  if (window.ethereum.isMetaMask) return 'metamask';
+  if ((window.ethereum as any).isHashPack) return 'hashpack';
+  if ((window.ethereum as any).isBlade) return 'blade';
+  if ((window.ethereum as any).isKabila) return 'kabila';
+  if ((window.ethereum as any).isWalletConnect) return 'walletconnect';
+  if ((window.ethereum as any).isCoinbaseWallet) return 'coinbase';
+  if ((window.ethereum as any).isTrust) return 'trust';
+  if ((window.ethereum as any).isTokenPocket) return 'tokenpocket';
+
+  // Generic ethereum provider
+  return 'unknown';
 }
 
 // ============================================================================
@@ -142,11 +175,25 @@ export function generateWalletConnectURI(): string {
 /**
  * Open wallet app based on platform
  * Attempts to open the appropriate wallet app using deep links
+ * If no wallet specified, tries to detect and open the best available one
  */
-export function openMobileWallet(walletType: 'metamask' | 'hashpack' | 'blade' = 'metamask'): void {
+export function openMobileWallet(walletType?: 'metamask' | 'hashpack' | 'blade' | 'auto'): void {
   if (!isMobileDevice()) {
     console.warn('openMobileWallet called on desktop device');
     return;
+  }
+
+  // Auto-detect wallet if 'auto' or not specified
+  if (!walletType || walletType === 'auto') {
+    const detectedWallet = detectActiveWallet();
+    if (detectedWallet !== 'none' && detectedWallet !== 'unknown') {
+      walletType = detectedWallet as any;
+      console.log('Auto-detected wallet:', walletType);
+    } else {
+      // Default to metamask if can't detect
+      walletType = 'metamask';
+      console.log('No wallet detected, defaulting to Metamask');
+    }
   }
 
   let deepLink: string;
@@ -174,6 +221,7 @@ export function openMobileWallet(walletType: 'metamask' | 'hashpack' | 'blade' =
 
 /**
  * Get list of available wallets on current platform
+ * Detects any wallet with ethereum provider
  */
 export function getAvailableWallets(): Array<{
   name: string;
@@ -183,8 +231,9 @@ export function getAvailableWallets(): Array<{
   deepLink?: string;
 }> {
   const mobile = isMobileDevice();
+  const hasEthereum = !!(window.ethereum);
 
-  return [
+  const wallets = [
     {
       name: 'Metamask',
       id: 'metamask',
@@ -206,22 +255,73 @@ export function getAvailableWallets(): Array<{
       supported: true,
       deepLink: mobile ? getBladeWalletDeepLink() : undefined,
     },
+    {
+      name: 'Kabila Wallet',
+      id: 'kabila',
+      installed: !!(window.ethereum as any)?.isKabila,
+      supported: true,
+      deepLink: undefined, // Add if deep link available
+    },
+    {
+      name: 'Trust Wallet',
+      id: 'trust',
+      installed: !!(window.ethereum as any)?.isTrust,
+      supported: true,
+      deepLink: undefined, // Add if deep link available
+    },
+    {
+      name: 'Coinbase Wallet',
+      id: 'coinbase',
+      installed: !!(window.ethereum as any)?.isCoinbaseWallet,
+      supported: true,
+      deepLink: undefined, // Add if deep link available
+    },
   ];
+
+  // If there's an ethereum provider but no specific wallet detected,
+  // add generic option
+  if (hasEthereum && !wallets.some(w => w.installed)) {
+    wallets.push({
+      name: 'Web3 Wallet (Detected)',
+      id: 'unknown',
+      installed: true,
+      supported: true,
+      deepLink: undefined,
+    });
+  }
+
+  return wallets;
 }
 
 /**
  * Get recommended wallet for current platform
+ * Auto-detects active wallet or recommends best option
  */
 export function getRecommendedWallet(): string {
+  // First, try to detect active wallet
+  const activeWallet = detectActiveWallet();
+
   if (isInWalletBrowser()) {
-    // Already in a wallet browser, use it
+    // Already in a wallet browser, use whatever is detected
+    if (activeWallet !== 'none' && activeWallet !== 'unknown') {
+      return activeWallet;
+    }
+    // Fallback: check specific identifiers
     if (window.ethereum?.isMetaMask) return 'metamask';
     if ((window.ethereum as any)?.isHashPack) return 'hashpack';
     if ((window.ethereum as any)?.isBlade) return 'blade';
+    if ((window.ethereum as any)?.isKabila) return 'kabila';
+
+    // Generic wallet detected
+    if (window.ethereum) return 'unknown';
   }
 
   if (isMobileDevice()) {
-    // On mobile, recommend Metamask Mobile (most popular)
+    // On mobile, if there's any wallet, use it
+    if (window.ethereum) {
+      return activeWallet !== 'none' ? activeWallet : 'unknown';
+    }
+    // No wallet detected, recommend Metamask (most popular)
     return 'metamask';
   }
 

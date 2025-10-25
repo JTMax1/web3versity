@@ -17,8 +17,9 @@ import {
   getWalletInstallUrl,
   openMobileWallet,
   determineConnectionMethod,
+  detectActiveWallet,
 } from '@/lib/mobileWallet';
-import { detectMetamask } from '@/lib/hederaUtils';
+import { detectWallet, getWalletName } from '@/lib/hederaUtils';
 
 interface MobileWalletPromptProps {
   /**
@@ -50,7 +51,8 @@ export function MobileWalletPrompt({
 }: MobileWalletPromptProps) {
   const [mobile, setMobile] = useState(false);
   const [inWalletBrowser, setInWalletBrowser] = useState(false);
-  const [hasMetamask, setHasMetamask] = useState(false);
+  const [hasWallet, setHasWallet] = useState(false);
+  const [walletName, setWalletName] = useState('');
   const [connectionMethod, setConnectionMethod] = useState<{
     method: 'browser' | 'deep-link' | 'install-required';
     wallet: string;
@@ -59,14 +61,15 @@ export function MobileWalletPrompt({
   useEffect(() => {
     setMobile(isMobileDevice());
     setInWalletBrowser(isInWalletBrowser());
-    setHasMetamask(detectMetamask());
+    setHasWallet(detectWallet());
+    setWalletName(getWalletName());
     setConnectionMethod(determineConnectionMethod());
   }, []);
 
   const handleConnectClick = () => {
     if (connectionMethod?.method === 'deep-link') {
-      // Open wallet app
-      openMobileWallet('metamask');
+      // Open wallet app (auto-detect or default to metamask)
+      openMobileWallet('auto');
     } else if (connectionMethod?.method === 'install-required') {
       // Open install page
       window.open(getWalletInstallUrl('metamask'), '_blank');
@@ -120,8 +123,8 @@ export function MobileWalletPrompt({
         <p className="text-gray-600 mb-8 max-w-md mx-auto">
           {description || (
             mobile
-              ? 'Connect your mobile wallet to access all features and start learning'
-              : 'Connect your Metamask wallet to access all features and start learning'
+              ? `Connect your mobile wallet${walletName && walletName !== 'none' ? ` (${walletName})` : ''} to access all features and start learning`
+              : `Connect your Web3 wallet${walletName && walletName !== 'none' ? ` (${walletName})` : ''} to access all features and start learning`
           )}
         </p>
 
@@ -138,12 +141,12 @@ export function MobileWalletPrompt({
 
             {/* Wallet Status */}
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <span className="text-gray-600">Wallet Installed:</span>
-              <span className={`font-semibold ${hasMetamask ? 'text-green-600' : 'text-orange-600'}`}>
-                {hasMetamask ? (
+              <span className="text-gray-600">Wallet Detected:</span>
+              <span className={`font-semibold ${hasWallet ? 'text-green-600' : 'text-orange-600'}`}>
+                {hasWallet ? (
                   <span className="flex items-center">
                     <CheckCircle className="w-4 h-4 mr-1" />
-                    Yes
+                    {walletName}
                   </span>
                 ) : (
                   'Not Detected'
@@ -184,8 +187,8 @@ export function MobileWalletPrompt({
             {connectionMethod.method === 'deep-link' && (
               <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg text-left">
                 <p className="text-blue-800 text-sm">
-                  📱 <strong>Open in Wallet App:</strong> Click below to open this page in your{' '}
-                  {connectionMethod.wallet} app, then connect.
+                  📱 <strong>Open in Wallet App:</strong> Click below to open this page in your wallet app{' '}
+                  {walletName && walletName !== 'none' ? `(${walletName})` : ''}, then connect.
                 </p>
               </div>
             )}
@@ -193,8 +196,8 @@ export function MobileWalletPrompt({
             {connectionMethod.method === 'install-required' && (
               <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg text-left">
                 <p className="text-orange-800 text-sm">
-                  📲 <strong>Wallet Not Found:</strong> You need to install Metamask {mobile ? 'app' : 'extension'}{' '}
-                  to continue. Click below to download.
+                  📲 <strong>Wallet Not Found:</strong> You need to install a Web3 wallet {mobile ? 'app' : 'extension'}{' '}
+                  (Metamask, HashPack, Blade, etc.) to continue. Click below to download.
                 </p>
               </div>
             )}
