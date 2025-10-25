@@ -138,12 +138,53 @@ export async function sendHBAR(
     // Convert HBAR to wei (1 HBAR = 10^18 wei in EVM context)
     const amountInWei = BigInt(Math.floor(amount * 1e18)).toString(16);
 
-    // Prepare transaction parameters
+    // Fetch current gas price from the network
+    console.log('⛽ Fetching current gas price...');
+    let gasPrice: string;
+    try {
+      gasPrice = await window.ethereum.request({
+        method: 'eth_gasPrice',
+        params: [],
+      }) as string;
+      console.log('✅ Gas price fetched:', gasPrice);
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch gas price, using default');
+      // Fallback to a reasonable default gas price for Hedera (typically very low)
+      gasPrice = '0x' + (10 * 1e9).toString(16); // 10 Gwei
+    }
+
+    // Estimate gas for the transaction dynamically
+    console.log('⛽ Estimating gas limit...');
+    let gasLimit: string;
+    try {
+      gasLimit = await window.ethereum.request({
+        method: 'eth_estimateGas',
+        params: [{
+          from: fromAddress,
+          to: toAddress,
+          value: '0x' + amountInWei,
+        }],
+      }) as string;
+
+      // Add 20% buffer to estimated gas to prevent out-of-gas errors
+      const gasLimitNumber = parseInt(gasLimit, 16);
+      const bufferedGas = Math.floor(gasLimitNumber * 1.2);
+      gasLimit = '0x' + bufferedGas.toString(16);
+
+      console.log('✅ Gas limit estimated:', gasLimit, `(${parseInt(gasLimit, 16)} gas)`);
+    } catch (error) {
+      console.warn('⚠️ Failed to estimate gas, using default for simple transfer');
+      // Fallback to standard transfer gas limit
+      gasLimit = '0x5208'; // 21000 gas for simple transfer
+    }
+
+    // Prepare transaction parameters with dynamic gas settings
     const txParams: any = {
       from: fromAddress,
       to: toAddress,
       value: '0x' + amountInWei,
-      gas: '0x5208', // 21000 gas for simple transfer
+      gas: gasLimit,
+      gasPrice: gasPrice,
     };
 
     // Note: Hedera doesn't support memo in standard EVM transfers
@@ -151,6 +192,14 @@ export async function sendHBAR(
     if (memo) {
       console.warn('⚠️ Memo not supported in EVM-style transfers. Use Hedera SDK for memo support.');
     }
+
+    console.log('📋 Transaction parameters:', {
+      from: txParams.from,
+      to: txParams.to,
+      value: amount + ' HBAR',
+      gas: parseInt(txParams.gas, 16),
+      gasPrice: parseInt(txParams.gasPrice, 16) + ' wei',
+    });
 
     // Log pending transaction to database
     let dbTransactionId: string | null = null;
@@ -357,6 +406,7 @@ export async function getTransactionById(transactionId: string): Promise<any> {
 
 /**
  * Estimate transaction fee for different transaction types
+ * This is a conservative estimate that should cover most transactions
  *
  * @param transactionType - Type of transaction
  * @returns Estimated fee in HBAR
@@ -364,13 +414,90 @@ export async function getTransactionById(transactionId: string): Promise<any> {
 export function estimateTransactionFee(transactionType: 'transfer' | 'token_create' | 'contract_call'): number {
   switch (transactionType) {
     case 'transfer':
-      return 0.0001; // Simple transfer: ~$0.0001
+      // Conservative estimate: 21000 gas * 10 Gwei = 0.00021 HBAR
+      // Using slightly higher buffer for safety
+      return 0.001; // Simple transfer: ~0.001 HBAR
     case 'token_create':
       return 1.0; // Token creation: ~1 HBAR
     case 'contract_call':
-      return 0.001; // Contract call: ~0.001 HBAR
+      return 0.005; // Contract call: ~0.005 HBAR (can vary widely)
     default:
-      return 0.0001;
+      return 0.001;
+  }
+}
+
+/**
+ * Get dynamic transaction fee estimate from network
+ * Uses actual network gas price and estimated gas limit
+ *
+ * @param toAddress - Recipient address
+ * @param amount - Amount in HBAR
+ * @returns Estimated fee in HBAR or fallback estimate
+ */
+export async function getDynamicTransactionFee(
+  toAddress?: string,
+  amount: number = 0
+): Promise<number> {
+  try {
+    if (!window.ethereum) {
+      return estimateTransactionFee('transfer');
+    }
+
+    // Get current gas price
+    const gasPrice = await window.ethereum.request({
+      method: 'eth_gasPrice',
+      params: [],
+    }) as string;
+
+    const gasPriceNumber = parseInt(gasPrice, 16);
+
+    // Get current account
+    const accounts = await window.ethereum.request({
+      method: 'eth_requestAccounts',
+    }) as string[];
+
+    if (!accounts || accounts.length === 0) {
+      return estimateTransactionFee('transfer');
+    }
+
+    const fromAddress = accounts[0];
+
+    // Estimate gas if we have recipient info
+    let gasLimit = 21000; // Default for simple transfer
+    if (toAddress && amount > 0) {
+      try {
+        const amountInWei = BigInt(Math.floor(amount * 1e18)).toString(16);
+        const estimatedGas = await window.ethereum.request({
+          method: 'eth_estimateGas',
+          params: [{
+            from: fromAddress,
+            to: toAddress,
+            value: '0x' + amountInWei,
+          }],
+        }) as string;
+
+        gasLimit = parseInt(estimatedGas, 16);
+        // Add 20% buffer
+        gasLimit = Math.floor(gasLimit * 1.2);
+      } catch (error) {
+        console.warn('Failed to estimate gas, using default:', error);
+      }
+    }
+
+    // Calculate fee: gasLimit * gasPrice (in wei) -> convert to HBAR
+    const feeInWei = gasLimit * gasPriceNumber;
+    const feeInHbar = feeInWei / 1e18;
+
+    console.log('💰 Dynamic fee estimate:', {
+      gasLimit,
+      gasPrice: gasPriceNumber,
+      feeInHbar: feeInHbar.toFixed(6),
+    });
+
+    return Math.max(feeInHbar, 0.0001); // Minimum 0.0001 HBAR
+  } catch (error) {
+    console.error('Failed to get dynamic fee estimate:', error);
+    return estimateTransactionFee('transfer');
   }
 }
 
