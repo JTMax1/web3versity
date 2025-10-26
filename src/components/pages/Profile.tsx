@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock, Download } from 'lucide-react';
+import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useWallet } from '../../contexts/WalletContext';
 import { useUserStats } from '../../hooks/useStats';
@@ -40,6 +40,8 @@ export function Profile() {
     courseId: '',
     courseName: ''
   });
+  const [showBadges, setShowBadges] = useState(false);
+  const [showLockedBadges, setShowLockedBadges] = useState(false);
 
   const isLoading = statsLoading || coursesLoading || badgesLoading;
   const memberSince = user.created_at ? format(new Date(user.created_at), 'MMMM yyyy') : 'Recently';
@@ -96,11 +98,14 @@ export function Profile() {
     setIsEditingAvatar(false);
   };
 
+  const earnedBadgesCount = allBadges?.filter(b => b.earned).length || 0;
+  const lockedBadgesCount = allBadges?.filter(b => !b.earned).length || 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe] py-12">
-      <div className="container mx-auto px-4 max-w-5xl">
+    <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe] py-6 md:py-12">
+      <div className="container mx-auto px-4 max-w-6xl">
         {/* Profile Header */}
-        <div className="bg-white rounded-3xl p-8 mb-8 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+        <div className="bg-white rounded-3xl p-6 md:p-8 mb-6 md:mb-8 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
           <div className="flex flex-col md:flex-row items-center gap-8">
             {/* Avatar */}
             <div className="flex flex-col items-center gap-2">
@@ -243,60 +248,32 @@ export function Profile() {
           </div>
         </div>
 
-        {/* Achievements & Badges */}
-        <div className="mb-8">
-          {isLoading ? (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
-              <p className="text-gray-600">Loading badges...</p>
-            </div>
-          ) : allBadges && allBadges.length > 0 ? (
-            <>
-              {/* Earned Badges Section */}
-              {allBadges.filter(b => b.earned).length > 0 && (
-                <div className="mb-8">
-                  <h2 className="mb-6">
-                    Earned Badges ({allBadges.filter(b => b.earned).length})
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {allBadges.filter(b => b.earned).map((badge) => (
-                      <BadgeCard key={badge.id} badge={badge} earned={true} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Locked Badges Section */}
-              {allBadges.filter(b => !b.earned).length > 0 && (
-                <div>
-                  <h2 className="mb-6">
-                    Locked Badges ({allBadges.filter(b => !b.earned).length})
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {allBadges.filter(b => !b.earned).map((badge) => (
-                      <BadgeCard key={badge.id} badge={badge} earned={false} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
-              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
-                <Award className="w-10 h-10 text-gray-400" />
+        {/* NFT Certificates Gallery - Moved to top */}
+        <div className="mb-6 md:mb-8">
+          <div className="bg-white rounded-3xl p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-yellow-100 to-orange-200 rounded-2xl flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                <Award className="w-6 h-6 text-orange-600" />
               </div>
-              <h3 className="mb-2">No badges available</h3>
-              <p className="text-gray-600">Badges will appear as you progress!</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-0">NFT Certificates</h2>
             </div>
-          )}
+            <CertificatesGallery />
+          </div>
         </div>
 
         {/* Completed Courses - Claim Certificates */}
         {completedCourses && completedCourses.length > 0 && (
-          <div className="mb-8">
-            <h2 className="mb-6">
-              Completed Courses
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="mb-6 md:mb-8">
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 rounded-2xl flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                  <Trophy className="w-6 h-6 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-0">
+                  Completed Courses
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {completedCourses.map((enrollment) => (
                 <div
                   key={enrollment.course_id}
@@ -308,7 +285,7 @@ export function Profile() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2">
-                        {enrollment.courses?.title || 'Course'}
+                        {(enrollment as any).course?.title || enrollment.courses?.title || 'Course Title'}
                       </h3>
                       <p className="text-sm text-gray-600">
                         Completed {enrollment.completed_at ? format(new Date(enrollment.completed_at), 'MMM d, yyyy') : 'Recently'}
@@ -330,7 +307,7 @@ export function Profile() {
                     onClick={() => setCertificateModal({
                       show: true,
                       courseId: enrollment.course_id,
-                      courseName: enrollment.courses?.title || 'Course'
+                      courseName: (enrollment as any).course?.title || enrollment.courses?.title || 'Course'
                     })}
                     className="mt-4 w-full py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-semibold hover:from-yellow-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(251,191,36,0.3)]"
                   >
@@ -339,16 +316,98 @@ export function Profile() {
                   </button>
                 </div>
               ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* NFT Certificates Gallery */}
-        <div className="mb-8">
-          <h2 className="mb-6">
-            NFT Certificates
-          </h2>
-          <CertificatesGallery />
+        {/* Achievements & Badges - Collapsible */}
+        <div className="mb-6 md:mb-8">
+          <div className="bg-white rounded-3xl p-6 md:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+            {isLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading badges...</p>
+              </div>
+            ) : allBadges && allBadges.length > 0 ? (
+              <>
+                {/* Earned Badges Section */}
+                {earnedBadgesCount > 0 && (
+                  <div className="mb-6">
+                    <button
+                      onClick={() => setShowBadges(!showBadges)}
+                      className="w-full flex items-center justify-between mb-4 group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                          <Award className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <div className="text-left">
+                          <h2 className="text-2xl font-bold text-gray-900 mb-0">
+                            Earned Badges
+                          </h2>
+                          <p className="text-sm text-gray-600">{earnedBadgesCount} badges unlocked</p>
+                        </div>
+                      </div>
+                      {showBadges ? (
+                        <ChevronUp className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                      ) : (
+                        <ChevronDown className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                      )}
+                    </button>
+                    {showBadges && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                        {allBadges.filter(b => b.earned).map((badge) => (
+                          <BadgeCard key={badge.id} badge={badge} earned={true} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Locked Badges Section */}
+                {lockedBadgesCount > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setShowLockedBadges(!showLockedBadges)}
+                      className="w-full flex items-center justify-between mb-4 group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                          <Lock className="w-6 h-6 text-gray-500" />
+                        </div>
+                        <div className="text-left">
+                          <h2 className="text-2xl font-bold text-gray-900 mb-0">
+                            Locked Badges
+                          </h2>
+                          <p className="text-sm text-gray-600">{lockedBadgesCount} badges to unlock</p>
+                        </div>
+                      </div>
+                      {showLockedBadges ? (
+                        <ChevronUp className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                      ) : (
+                        <ChevronDown className="w-6 h-6 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                      )}
+                    </button>
+                    {showLockedBadges && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                        {allBadges.filter(b => !b.earned).map((badge) => (
+                          <BadgeCard key={badge.id} badge={badge} earned={false} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                  <Award className="w-10 h-10 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No badges available</h3>
+                <p className="text-gray-600">Badges will appear as you progress!</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -420,26 +479,26 @@ function BadgeCard({ badge, earned }: { badge: any; earned: boolean }) {
 
   return (
     <div
-      className={`bg-gradient-to-br ${colors.bg} border-2 ${lockedBorder} rounded-2xl p-4 ${earned ? colors.glow : 'shadow-[0_4px_16px_rgba(0,0,0,0.06)]'} ${earned ? 'hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] hover:-translate-y-1' : ''} transition-all relative ${lockedClass}`}
+      className={`bg-gradient-to-br ${colors.bg} border-2 ${lockedBorder} rounded-xl md:rounded-2xl p-3 md:p-4 ${earned ? colors.glow : 'shadow-[0_4px_16px_rgba(0,0,0,0.06)]'} ${earned ? 'hover:shadow-[0_8px_24px_rgba(0,0,0,0.12)] hover:-translate-y-1' : ''} transition-all relative ${lockedClass}`}
     >
       {/* Lock Icon for Locked Badges */}
       {!earned && (
-        <div className="absolute top-2 right-2">
-          <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center shadow-lg">
-            <Lock className="w-4 h-4 text-white" />
+        <div className="absolute top-1 right-1 md:top-2 md:right-2">
+          <div className="w-6 h-6 md:w-8 md:h-8 bg-gray-500 rounded-full flex items-center justify-center shadow-lg">
+            <Lock className="w-3 h-3 md:w-4 md:h-4 text-white" />
           </div>
         </div>
       )}
 
       {/* Badge Icon */}
-      <div className="flex justify-center mb-3">
-        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
-          <span className="text-4xl">{badge.icon_emoji}</span>
+      <div className="flex justify-center mb-2 md:mb-3">
+        <div className="w-12 h-12 md:w-16 md:h-16 bg-white rounded-full flex items-center justify-center shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+          <span className="text-2xl md:text-4xl">{badge.icon_emoji}</span>
         </div>
       </div>
 
       {/* Badge Name */}
-      <h4 className={`text-center mb-1 ${colors.text} font-bold`}>
+      <h4 className={`text-center mb-1 text-sm md:text-base ${colors.text} font-bold line-clamp-1`}>
         {badge.name}
       </h4>
 
@@ -449,19 +508,19 @@ function BadgeCard({ badge, earned }: { badge: any; earned: boolean }) {
       </p>
 
       {/* Badge Description */}
-      <p className="text-xs text-center text-gray-600 mb-3">
+      <p className="text-xs text-center text-gray-600 mb-2 md:mb-3 line-clamp-2">
         {badge.description}
       </p>
 
       {/* Earned Date or Locked Status */}
       {earned && badge.earned_at ? (
-        <div className="pt-3 border-t border-gray-200">
+        <div className="pt-2 md:pt-3 border-t border-gray-200">
           <p className="text-xs text-center text-gray-500">
-            Earned {format(new Date(badge.earned_at), 'MMM d, yyyy')}
+            {format(new Date(badge.earned_at), 'MMM d, yyyy')}
           </p>
         </div>
       ) : !earned && (
-        <div className="pt-3 border-t border-gray-200">
+        <div className="pt-2 md:pt-3 border-t border-gray-200">
           <p className="text-xs text-center text-gray-500 font-medium">
             🔒 Locked
           </p>
@@ -469,7 +528,7 @@ function BadgeCard({ badge, earned }: { badge: any; earned: boolean }) {
       )}
 
       {/* XP Reward Badge */}
-      <div className="mt-3 flex items-center justify-center gap-1">
+      <div className="mt-2 md:mt-3 flex items-center justify-center gap-1">
         <Award className="w-3 h-3 text-gray-500" />
         <span className="text-xs text-gray-600 font-medium">+{badge.xp_reward} XP</span>
       </div>

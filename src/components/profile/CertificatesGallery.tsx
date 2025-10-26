@@ -131,22 +131,23 @@ export function CertificatesGallery() {
         {certificates.map((cert) => (
           <div
             key={cert.id}
-            className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all overflow-hidden group cursor-pointer"
+            className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all overflow-hidden group cursor-pointer flex flex-col"
             onClick={() => openCertificate(cert)}
           >
-            {/* Preview */}
-            <div className="aspect-[10/7] bg-gradient-to-br from-blue-50 to-purple-50 relative overflow-hidden">
+            {/* Preview - Fixed width container */}
+            <div className="bg-gradient-to-br from-blue-50 to-purple-50 relative overflow-hidden flex items-center justify-center p-4">
               {svgData[cert.id] ? (
                 <div
-                  className="w-full h-full transform group-hover:scale-105 transition-transform duration-300"
+                  className="w-full max-w-[340px] mx-auto transform group-hover:scale-105 transition-transform duration-300"
+                  style={{ maxHeight: 'none' }}
                   dangerouslySetInnerHTML={{ __html: svgData[cert.id] }}
                 />
               ) : loadingSvg[cert.id] ? (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-full max-w-[340px] aspect-[10/7] flex items-center justify-center">
                   <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
                 </div>
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-full max-w-[340px] aspect-[10/7] flex items-center justify-center">
                   <Award className="w-16 h-16 text-blue-600/20" />
                 </div>
               )}
@@ -195,7 +196,7 @@ export function CertificatesGallery() {
                 href={`https://hashscan.io/testnet/token/${cert.token_id}/${cert.serial_number}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
                 <ExternalLink className="w-3 h-3" />
