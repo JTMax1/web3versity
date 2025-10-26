@@ -82,17 +82,21 @@ export function generateAccountUrl(accountId: string): string {
 
 /**
  * Validate Hedera Account ID format
+ * Uses regex to avoid triggering Hashgraph SDK wallet detection
  *
- * @param accountId - Account ID to validate
+ * @param accountId - Account ID to validate (format: 0.0.xxxxx or 0x... EVM address)
  * @returns true if valid, false otherwise
  */
 export function isValidAccountId(accountId: string): boolean {
-  try {
-    AccountId.fromString(accountId);
-    return true;
-  } catch {
-    return false;
-  }
+  if (!accountId) return false;
+
+  // Match Hedera account ID format: 0.0.xxxxx or 0.0.xxxxx-abcde
+  const hederaIdRegex = /^0\.0\.\d+(-[a-z]{5})?$/;
+
+  // Match EVM address format: 0x followed by 40 hexadecimal characters
+  const evmAddressRegex = /^0x[a-fA-F0-9]{40}$/;
+
+  return hederaIdRegex.test(accountId) || evmAddressRegex.test(accountId);
 }
 
 /**

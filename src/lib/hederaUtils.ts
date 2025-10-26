@@ -52,6 +52,7 @@ declare global {
       on: (event: string, callback: (...args: any[]) => void) => void;
       removeListener: (event: string, callback: (...args: any[]) => void) => void;
       selectedAddress?: string;
+      providers?: any[]; // Support for multiple wallet providers
     };
   }
 }
@@ -125,14 +126,29 @@ export function isWalletSupported(): boolean {
 }
 
 /**
- * Get the Ethereum provider
- * @throws Error if no Web3 wallet is installed
+ * Get the Ethereum provider (Metamask)
+ * Forces use of Metamask to avoid conflicts with Hashgraph SDK wallet detection
+ * @throws Error if Metamask is not installed
  */
 function getProvider() {
-  if (!detectWallet()) {
-    throw new Error('No Web3 wallet detected. Please install Metamask, HashPack, Blade, or any compatible wallet.');
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('No Web3 wallet detected. Please install Metamask to use this app.');
   }
-  return window.ethereum!;
+
+  // Force use of Metamask provider to avoid conflicts
+  // If multiple wallets are installed, prioritize Metamask
+  if (window.ethereum.providers) {
+    // Some wallets inject an array of providers
+    const metamaskProvider = (window.ethereum.providers as any[]).find(
+      (provider: any) => provider.isMetaMask
+    );
+    if (metamaskProvider) {
+      return metamaskProvider;
+    }
+  }
+
+  // Return the default ethereum provider (should be Metamask)
+  return window.ethereum;
 }
 
 /**
