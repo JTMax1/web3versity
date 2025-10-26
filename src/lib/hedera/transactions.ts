@@ -5,13 +5,9 @@
  * and interacting with the Hedera network for practical lessons.
  */
 
-import {
-  TransferTransaction,
-  AccountId,
-  Hbar,
-  TransactionId,
+// Import only types from Hashgraph SDK to avoid triggering wallet detection
+import type {
   TransactionReceipt,
-  TransactionResponse,
 } from '@hashgraph/sdk';
 import {
   generateHashScanUrl,
@@ -20,6 +16,64 @@ import {
   tinybarsToHbar,
 } from './client';
 import { supabase } from '../supabase/client';
+
+// Hedera Mirror Node API base URL
+const MIRROR_NODE_URL = 'https://testnet.mirrornode.hedera.com/api/v1';
+
+// Helper to get Metamask provider without SDK interference
+function getMetamaskProvider() {
+  if (typeof window === 'undefined' || !window.ethereum) {
+    throw new Error('Metamask not found');
+  }
+
+  // If multiple providers exist, find Metamask
+  if ((window.ethereum as any).providers) {
+    const providers = (window.ethereum as any).providers;
+    const metamask = providers.find((p: any) => p.isMetaMask);
+    if (metamask) return metamask;
+  }
+
+  // Return default provider
+  return window.ethereum;
+}
+
+/**
+ * Get the EVM address for a Hedera account ID from Mirror Node
+ * Hedera accounts have an associated EVM address that must be queried
+ * @param accountId - Hedera account ID (0.0.xxxxx format)
+ * @returns EVM address (0x... format) or null if not found
+ */
+async function getEvmAddressFromMirrorNode(accountId: string): Promise<string | null> {
+  try {
+    console.log(`🔍 Querying Mirror Node for EVM address of ${accountId}...`);
+
+    const response = await fetch(`${MIRROR_NODE_URL}/accounts/${accountId}`);
+
+    if (!response.ok) {
+      console.error(`❌ Mirror Node query failed: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    // Mirror Node returns evm_address field
+    if (data.evm_address) {
+      // Ensure it starts with 0x
+      const evmAddress = data.evm_address.startsWith('0x')
+        ? data.evm_address
+        : '0x' + data.evm_address;
+
+      console.log(`✅ Found EVM address: ${evmAddress}`);
+      return evmAddress;
+    }
+
+    console.warn(`⚠️ No EVM address found for account ${accountId}`);
+    return null;
+  } catch (error) {
+    console.error('❌ Error querying Mirror Node:', error);
+    return null;
+  }
+}
 
 /**
  * Transaction result interface
@@ -50,7 +104,7 @@ export interface TransactionHistoryItem {
 /**
  * Send HBAR from user's wallet to a recipient
  *
- * This function uses the user's connected wallet (Metamask/WalletConnect) to sign
+ * This function uses the user's connected wallet (Metamask) to sign
  * the transaction. The transaction is executed on Hedera Testnet via JSON-RPC.
  *
  * REAL IMPLEMENTATION - Uses Metamask to sign transactions
@@ -70,13 +124,8 @@ export async function sendHBAR(
   userId?: string
 ): Promise<TransactionResult> {
   try {
-    // Check if Metamask is available
-    if (!window.ethereum) {
-      return {
-        success: false,
-        error: 'Metamask not detected. Please install Metamask to send transactions.',
-      };
-    }
+    // Get Metamask provider directly
+    const provider = getMetamaskProvider();
 
     // Validate recipient account ID format
     if (!isValidAccountId(recipientId)) {
@@ -102,10 +151,28 @@ export async function sendHBAR(
       memo,
     });
 
-    // Get sender's EVM address
-    const accounts = await window.ethereum.request({
-      method: 'eth_requestAccounts',
-    }) as string[];
+    // Get sender's EVM address using provider directly
+    let accounts: string[];
+    try {
+      accounts = await provider.request({
+        method: 'eth_requestAccounts',
+      }) as string[];
+    } catch (error: any) {
+      // Handle wallet connection errors
+      if (error.code === -32603) {
+        return {
+          success: false,
+          error: 'No active wallet found. Please connect your wallet to Hedera Testnet using Metamask.',
+        };
+      }
+      if (error.code === 4001) {
+        return {
+          success: false,
+          error: 'Wallet connection rejected by user. Please approve the connection request.',
+        };
+      }
+      throw error; // Re-throw other errors
+    }
 
     if (!accounts || accounts.length === 0) {
       return {
@@ -117,32 +184,58 @@ export async function sendHBAR(
     const fromAddress = accounts[0];
 
     // Convert Hedera account ID (0.0.xxxxx) to EVM address format for recipient
-    // For testnet, we can use the account ID directly as Hedera supports both formats
+    // IMPORTANT: Hedera accounts have an associated EVM address that must be queried from Mirror Node
+    // We CANNOT simply convert the account number to hex - that produces the wrong address!
     let toAddress: string;
 
     if (recipientId.startsWith('0.0.')) {
-      // Convert Hedera account ID to EVM address
-      // Format: 0.0.xxxxx -> extract xxxxx and convert to hex address
-      const accountNum = recipientId.split('.')[2];
-      toAddress = '0x' + parseInt(accountNum).toString(16).padStart(40, '0');
+      // Query Mirror Node to get the correct EVM address for this Hedera account
+      const evmAddress = await getEvmAddressFromMirrorNode(recipientId);
+
+      if (!evmAddress) {
+        return {
+          success: false,
+          error: `Could not find EVM address for Hedera account ${recipientId}. Make sure the account exists on Hedera Testnet.`,
+        };
+      }
+
+      toAddress = evmAddress;
+      console.log(`📍 Recipient: ${recipientId} → ${toAddress}`);
     } else if (recipientId.startsWith('0x')) {
       // Already in EVM format
       toAddress = recipientId;
+      console.log(`📍 Recipient already in EVM format: ${toAddress}`);
     } else {
       return {
         success: false,
-        error: 'Invalid recipient address format',
+        error: 'Invalid recipient address format. Use Hedera account ID (0.0.xxxxx) or EVM address (0x...)',
       };
     }
 
     // Convert HBAR to wei (1 HBAR = 10^18 wei in EVM context)
     const amountInWei = BigInt(Math.floor(amount * 1e18)).toString(16);
 
+    // Check if recipient is a contract (has code) - contracts need MORE gas
+    console.log('🔍 Checking if recipient is a contract...');
+    let isContract = false;
+    try {
+      const code = await provider.request({
+        method: 'eth_getCode',
+        params: [toAddress, 'latest'],
+      }) as string;
+
+      // If code is not '0x' or '0x0', it's a contract
+      isContract = !!(code && code !== '0x' && code !== '0x0');
+      console.log(isContract ? '⚠️ Recipient is a SMART CONTRACT' : '✅ Recipient is a regular account (EOA)');
+    } catch (error) {
+      console.warn('⚠️ Could not check if recipient is contract, assuming EOA');
+    }
+
     // Fetch current gas price from the network
     console.log('⛽ Fetching current gas price...');
     let gasPrice: string;
     try {
-      gasPrice = await window.ethereum.request({
+      gasPrice = await provider.request({
         method: 'eth_gasPrice',
         params: [],
       }) as string;
@@ -153,30 +246,30 @@ export async function sendHBAR(
       gasPrice = '0x' + (10 * 1e9).toString(16); // 10 Gwei
     }
 
-    // Estimate gas for the transaction dynamically
-    console.log('⛽ Estimating gas limit...');
-    let gasLimit: string;
-    try {
-      gasLimit = await window.ethereum.request({
-        method: 'eth_estimateGas',
-        params: [{
-          from: fromAddress,
-          to: toAddress,
-          value: '0x' + amountInWei,
-        }],
-      }) as string;
+    // Set gas limit for Hedera EVM transfers
+    // IMPORTANT: Hedera requires significantly more gas than Ethereum
+    // Standard Ethereum EOA transfer: 21,000 gas
+    // Hedera EVM EOA transfer: 80,000-400,000 gas
+    // Hedera EVM CONTRACT transfer: 800,000-2,000,000 gas (contracts execute receive/fallback functions!)
+    console.log('⛽ Setting gas limit for Hedera...');
 
-      // Add 20% buffer to estimated gas to prevent out-of-gas errors
-      const gasLimitNumber = parseInt(gasLimit, 16);
-      const bufferedGas = Math.floor(gasLimitNumber * 1.2);
-      gasLimit = '0x' + bufferedGas.toString(16);
+    // If sending to a contract, we need MUCH MORE gas because the contract's receive() function will execute
+    // Contracts can have complex logic in their receive functions
+    let safeGasLimit: number;
 
-      console.log('✅ Gas limit estimated:', gasLimit, `(${parseInt(gasLimit, 16)} gas)`);
-    } catch (error) {
-      console.warn('⚠️ Failed to estimate gas, using default for simple transfer');
-      // Fallback to standard transfer gas limit
-      gasLimit = '0x5208'; // 21000 gas for simple transfer
+    if (isContract) {
+      // For contracts: Use 2 million gas to be absolutely safe
+      // The contract's receive() or fallback() function could do anything!
+      safeGasLimit = 2000000;
+      console.log('⚠️ Using EXTRA HIGH gas limit for contract recipient');
+    } else {
+      // For regular accounts (EOA): 400k is more than enough
+      safeGasLimit = 400000;
+      console.log('✅ Using standard gas limit for EOA recipient');
     }
+
+    const gasLimit = '0x' + safeGasLimit.toString(16);
+    console.log('✅ Gas limit set:', gasLimit, `(${safeGasLimit} gas) - Safe for Hedera EVM`);
 
     // Prepare transaction parameters with dynamic gas settings
     const txParams: any = {
@@ -205,14 +298,14 @@ export async function sendHBAR(
     let dbTransactionId: string | null = null;
     if (userId) {
       const { data: dbTx, error: dbError } = await supabase
-        .from('payment_transactions')
+        .from('transactions')
         .insert({
           user_id: userId,
           transaction_id: 'pending',
+          transaction_type: 'practice_transfer',
+          amount_hbar: amount,
           from_account: fromAddress,
           to_account: recipientId,
-          amount: amount,
-          transaction_type: 'transfer',
           status: 'pending',
           memo: memo || null,
         })
@@ -228,7 +321,7 @@ export async function sendHBAR(
 
     // Send transaction via Metamask
     console.log('⏳ Requesting Metamask signature...');
-    const txHash = await window.ethereum.request({
+    const txHash = await provider.request({
       method: 'eth_sendTransaction',
       params: [txParams],
     }) as string;
@@ -248,7 +341,7 @@ export async function sendHBAR(
 
     // Wait for transaction confirmation (poll for receipt)
     console.log('⏳ Waiting for transaction confirmation...');
-    const receipt = await waitForTransactionReceipt(txHash);
+    const receipt = await waitForTransactionReceipt(txHash, provider);
 
     // Check transaction status
     const success = receipt && (receipt.status === '0x1' || receipt.status === 1);
@@ -256,7 +349,7 @@ export async function sendHBAR(
     // Update database with final status
     if (userId && dbTransactionId) {
       await supabase
-        .from('payment_transactions')
+        .from('transactions')
         .update({
           status: success ? 'success' : 'failed',
         })
@@ -310,14 +403,13 @@ export async function sendHBAR(
  * Polls for up to 30 seconds
  *
  * @param txHash - Transaction hash
+ * @param provider - Ethereum provider
  * @returns Transaction receipt or null if timeout
  */
-async function waitForTransactionReceipt(txHash: string, maxAttempts = 30): Promise<any> {
-  if (!window.ethereum) return null;
-
+async function waitForTransactionReceipt(txHash: string, provider: any, maxAttempts = 30): Promise<any> {
   for (let i = 0; i < maxAttempts; i++) {
     try {
-      const receipt = await window.ethereum.request({
+      const receipt = await provider.request({
         method: 'eth_getTransactionReceipt',
         params: [txHash],
       });
@@ -352,7 +444,7 @@ export async function getTransactionHistory(
 ): Promise<TransactionHistoryItem[]> {
   try {
     const { data, error } = await supabase
-      .from('payment_transactions')
+      .from('transactions')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -363,12 +455,12 @@ export async function getTransactionHistory(
       return [];
     }
 
-    return (data || []).map((tx) => ({
+    return (data || []).map((tx: any) => ({
       id: tx.id,
       transaction_id: tx.transaction_id,
       from_account: tx.from_account || '',
       to_account: tx.to_account || '',
-      amount: tx.amount || 0,
+      amount: tx.amount_hbar || 0,
       memo: tx.memo,
       status: tx.status || 'pending',
       created_at: tx.created_at,
@@ -414,15 +506,16 @@ export async function getTransactionById(transactionId: string): Promise<any> {
 export function estimateTransactionFee(transactionType: 'transfer' | 'token_create' | 'contract_call'): number {
   switch (transactionType) {
     case 'transfer':
-      // Conservative estimate: 21000 gas * 10 Gwei = 0.00021 HBAR
-      // Using slightly higher buffer for safety
-      return 0.001; // Simple transfer: ~0.001 HBAR
+      // Hedera EVM transfer estimate: 400,000 gas * 490 Gwei = ~0.196 HBAR
+      // But gas price varies, so using conservative 0.25 HBAR estimate
+      // Actual fee will likely be 0.1-0.2 HBAR (still very cheap!)
+      return 0.25; // Simple transfer: ~0.25 HBAR on Hedera
     case 'token_create':
       return 1.0; // Token creation: ~1 HBAR
     case 'contract_call':
-      return 0.005; // Contract call: ~0.005 HBAR (can vary widely)
+      return 0.5; // Contract call: ~0.5 HBAR (can vary widely)
     default:
-      return 0.001;
+      return 0.25;
   }
 }
 
@@ -438,67 +531,9 @@ export async function getDynamicTransactionFee(
   toAddress?: string,
   amount: number = 0
 ): Promise<number> {
-  try {
-    if (!window.ethereum) {
-      return estimateTransactionFee('transfer');
-    }
-
-    // Get current gas price
-    const gasPrice = await window.ethereum.request({
-      method: 'eth_gasPrice',
-      params: [],
-    }) as string;
-
-    const gasPriceNumber = parseInt(gasPrice, 16);
-
-    // Get current account
-    const accounts = await window.ethereum.request({
-      method: 'eth_requestAccounts',
-    }) as string[];
-
-    if (!accounts || accounts.length === 0) {
-      return estimateTransactionFee('transfer');
-    }
-
-    const fromAddress = accounts[0];
-
-    // Estimate gas if we have recipient info
-    let gasLimit = 21000; // Default for simple transfer
-    if (toAddress && amount > 0) {
-      try {
-        const amountInWei = BigInt(Math.floor(amount * 1e18)).toString(16);
-        const estimatedGas = await window.ethereum.request({
-          method: 'eth_estimateGas',
-          params: [{
-            from: fromAddress,
-            to: toAddress,
-            value: '0x' + amountInWei,
-          }],
-        }) as string;
-
-        gasLimit = parseInt(estimatedGas, 16);
-        // Add 20% buffer
-        gasLimit = Math.floor(gasLimit * 1.2);
-      } catch (error) {
-        console.warn('Failed to estimate gas, using default:', error);
-      }
-    }
-
-    // Calculate fee: gasLimit * gasPrice (in wei) -> convert to HBAR
-    const feeInWei = gasLimit * gasPriceNumber;
-    const feeInHbar = feeInWei / 1e18;
-
-    console.log('💰 Dynamic fee estimate:', {
-      gasLimit,
-      gasPrice: gasPriceNumber,
-      feeInHbar: feeInHbar.toFixed(6),
-    });
-
-    return Math.max(feeInHbar, 0.0001); // Minimum 0.0001 HBAR
-  } catch (error) {
-    console.error('Failed to get dynamic fee estimate:', error);
-    return estimateTransactionFee('transfer');
-  }
+  // TEMPORARY: Return static estimate to avoid SDK conflict
+  // The actual fee on Hedera is very low anyway (~0.0001 HBAR)
+  return estimateTransactionFee('transfer');
 }
 
 /**

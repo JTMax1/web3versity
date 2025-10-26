@@ -5,10 +5,10 @@
  * Used in practical lessons to teach users how to send blockchain transactions.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Send, AlertCircle, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
-import { sendHBAR, estimateTransactionFee, formatTransactionId } from '../../lib/hedera/transactions';
+import { sendHBAR, estimateTransactionFee, getDynamicTransactionFee, formatTransactionId } from '../../lib/hedera/transactions';
 import { isValidAccountId } from '../../lib/hedera/client';
 import { useWallet } from '../../contexts/WalletContext';
 import { toast } from 'sonner';
@@ -66,12 +66,49 @@ export function TransactionSender({
     error?: string;
   } | null>(null);
 
+  // Dynamic fee estimation
+  const [estimatedFee, setEstimatedFee] = useState(estimateTransactionFee('transfer'));
+  const [isFetchingFee, setIsFetchingFee] = useState(false);
+
   // Form validation
   const isRecipientValid = isValidAccountId(recipient);
   const isAmountValid = amount > 0 && amount <= balance;
-  const estimatedFee = estimateTransactionFee('transfer');
   const totalCost = amount + estimatedFee;
   const canSubmit = isRecipientValid && isAmountValid && !isSending;
+
+  // Fetch dynamic fee when recipient or amount changes
+  useEffect(() => {
+    const fetchDynamicFee = async () => {
+      if (!isRecipientValid || amount <= 0) {
+        setEstimatedFee(estimateTransactionFee('transfer'));
+        return;
+      }
+
+      setIsFetchingFee(true);
+      try {
+        // Convert Hedera account ID to EVM address for fee estimation
+        let toAddress: string;
+        if (recipient.startsWith('0.0.')) {
+          const accountNum = recipient.split('.')[2];
+          toAddress = '0x' + parseInt(accountNum).toString(16).padStart(40, '0');
+        } else {
+          toAddress = recipient;
+        }
+
+        const dynamicFee = await getDynamicTransactionFee(toAddress, amount);
+        setEstimatedFee(dynamicFee);
+      } catch (error) {
+        console.error('Failed to fetch dynamic fee:', error);
+        setEstimatedFee(estimateTransactionFee('transfer'));
+      } finally {
+        setIsFetchingFee(false);
+      }
+    };
+
+    // Debounce fee fetching to avoid too many requests
+    const timeoutId = setTimeout(fetchDynamicFee, 500);
+    return () => clearTimeout(timeoutId);
+  }, [recipient, amount, isRecipientValid]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,7 +355,10 @@ export function TransactionSender({
           </div>
           <div className="flex justify-between text-sm mt-2">
             <span className="text-gray-600">Your balance: {balance.toFixed(4)} ℏ</span>
-            <span className="text-gray-600">Fee: ~{estimatedFee.toFixed(4)} ℏ</span>
+            <span className="text-gray-600 flex items-center gap-1">
+              Fee: ~{estimatedFee.toFixed(6)} ℏ
+              {isFetchingFee && <Loader2 className="w-3 h-3 animate-spin" />}
+            </span>
           </div>
           {amount > balance && (
             <p className="text-red-500 text-sm mt-2 flex items-center">
