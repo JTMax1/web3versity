@@ -125,6 +125,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       authLoading: false,
       authError: null,
     });
+    // Clear ALL wallet persistence data on disconnect
+    localStorage.removeItem('walletConnected');
+    localStorage.removeItem('walletAddress');
     localStorage.removeItem('userId');
   }, []);
 
@@ -176,17 +179,32 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const wasConnected = localStorage.getItem('walletConnected') === 'true';
       if (!wasConnected) return;
 
-      const isConnected = await isWalletConnected();
-      if (isConnected) {
-        try {
+      console.log('🔄 Attempting auto-reconnect...');
+
+      try {
+        // Use eth_accounts (doesn't trigger popup) to check if wallet is accessible
+        const accounts = await window.ethereum.request({
+          method: 'eth_accounts',
+        }) as string[];
+
+        if (accounts && accounts.length > 0) {
+          console.log('✅ Found connected account, restoring session...');
+          // Wallet is already connected, just restore the state
           await connect();
-        } catch (error) {
-          console.error('Auto-reconnect failed:', error);
+        } else {
+          console.log('⚠️ No connected accounts found, clearing auto-connect flag');
+          localStorage.removeItem('walletConnected');
         }
+      } catch (error) {
+        console.error('❌ Auto-reconnect failed:', error);
+        // Clear the flag if auto-reconnect fails
+        localStorage.removeItem('walletConnected');
       }
     };
 
-    autoConnect();
+    // Delay auto-connect slightly to ensure Metamask is fully initialized
+    const timer = setTimeout(autoConnect, 500);
+    return () => clearTimeout(timer);
   }, [connect]);
 
   // Listen to account changes
