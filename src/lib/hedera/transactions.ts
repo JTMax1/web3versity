@@ -14,7 +14,7 @@ import {
   isValidAccountId,
   hbarToTinybars,
   tinybarsToHbar,
-} from './client';
+} from './validation';
 import { supabase } from '../supabase/client';
 
 // Hedera Mirror Node API base URL
