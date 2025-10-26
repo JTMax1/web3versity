@@ -1,16 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../../ui/button';
-import { Wallet, CheckCircle, AlertTriangle, Shield, Smartphone } from 'lucide-react';
+import { Wallet, CheckCircle, AlertTriangle, Shield, Smartphone, ExternalLink } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
+import { toast } from 'sonner';
 
 interface WalletConnectionDemoProps {
   onInteract?: () => void;
 }
 
 export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) {
+  const wallet = useWallet();
   const [step, setStep] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
+
+  // Use actual wallet connection status
+  const isConnected = wallet.connected;
 
   const steps = [
     {
@@ -20,7 +25,7 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
     },
     {
       title: 'Choose Your Wallet',
-      description: 'Select which wallet you want to use (HashPack, Blade, etc.)',
+      description: 'Select which wallet you want to use (Metamask for this demo)',
       icon: <Wallet className="w-8 h-8" />
     },
     {
@@ -35,17 +40,29 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
     }
   ];
 
-  const handleConnect = () => {
+  // Handle real wallet connection
+  const handleConnect = async () => {
     setIsConnecting(true);
-    setTimeout(() => {
+    try {
+      await wallet.connect();
+      toast.success('Wallet Connected!', {
+        description: `Connected to ${wallet.accountId}`
+      });
+      if (onInteract) onInteract();
+    } catch (error: any) {
+      console.error('Connection failed:', error);
+      toast.error('Connection Failed', {
+        description: error.message || 'Failed to connect wallet'
+      });
+    } finally {
       setIsConnecting(false);
-      setIsConnected(true);
-    }, 2000);
+    }
   };
 
   const handleDisconnect = () => {
-    setIsConnected(false);
+    wallet.disconnect();
     setStep(0);
+    toast.info('Wallet Disconnected');
   };
 
   const handleNextStep = () => {
@@ -57,13 +74,24 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
     }
   };
 
+  // If already connected, show connected state directly
+  useEffect(() => {
+    if (isConnected) {
+      setStep(steps.length);
+    }
+  }, [isConnected]);
+
   return (
     <div className="w-full max-w-4xl mx-auto p-6 rounded-3xl bg-gradient-to-br from-violet-50 to-fuchsia-50"
          style={{ boxShadow: '0 8px 32px rgba(139, 92, 246, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.8)' }}>
-      
+
       <div className="mb-8 text-center">
         <h3 className="mb-2">Connecting Your Wallet to DApps</h3>
-        <p className="text-gray-600">Learn how to safely connect and interact with decentralized applications</p>
+        <p className="text-gray-600">
+          {isConnected
+            ? 'Your wallet is connected to this educational DApp'
+            : 'Learn how to safely connect and interact with decentralized applications'}
+        </p>
       </div>
 
       {!isConnected ? (
@@ -75,7 +103,7 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
                 <motion.div
                   animate={{
                     scale: step === index ? 1.1 : 1,
-                    backgroundColor: step > index ? '#10b981' : 
+                    backgroundColor: step > index ? '#10b981' :
                                     step === index ? '#8b5cf6' : '#e5e7eb'
                   }}
                   className="w-12 h-12 rounded-full flex items-center justify-center text-white"
@@ -87,10 +115,10 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
                     <div className="text-white">{index + 1}</div>
                   )}
                 </motion.div>
-                
+
                 {index < steps.length - 1 && (
                   <motion.div
-                    animate={{ 
+                    animate={{
                       backgroundColor: step > index ? '#10b981' : '#e5e7eb'
                     }}
                     className="h-1 mx-2"
@@ -120,7 +148,7 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
                 {step === 0 && (
                   <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
                     <p className="text-sm">
-                      💡 The DApp cannot access your wallet until you give permission. It's like when a mobile app 
+                      💡 The DApp cannot access your wallet until you give permission. It's like when a mobile app
                       asks to access your camera - you decide!
                     </p>
                   </div>
@@ -128,15 +156,23 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
 
                 {step === 1 && (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600 mb-3">Popular Hedera wallets:</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 rounded-lg bg-purple-50 border border-purple-200 cursor-pointer hover:bg-purple-100">
-                        <p className="mb-1">🦅 HashPack</p>
-                        <p className="text-xs text-gray-600">Most popular</p>
+                    <p className="text-sm text-gray-600 mb-3">For this demo, we'll use Metamask connected to Hedera Testnet:</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="p-3 rounded-lg bg-orange-50 border-2 border-orange-300">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">🦊</span>
+                          <div className="flex-1">
+                            <p className="mb-1 font-semibold">Metamask (Connected to Hedera)</p>
+                            <p className="text-xs text-gray-600">
+                              Using Metamask with Hedera Testnet network (Chain ID: 296)
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                      <div className="p-3 rounded-lg bg-purple-50 border border-purple-200 cursor-pointer hover:bg-purple-100">
-                        <p className="mb-1">⚔️ Blade</p>
-                        <p className="text-xs text-gray-600">Mobile-friendly</p>
+                      <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 opacity-60">
+                        <p className="text-sm text-gray-500">
+                          📝 <strong>Note:</strong> Native Hedera wallets (HashPack, Blade) work similarly but use WalletConnect instead of Metamask's API
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -181,12 +217,12 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
                   Continue
                 </Button>
               ) : (
-                <Button 
-                  onClick={handleConnect} 
-                  disabled={isConnecting}
+                <Button
+                  onClick={handleConnect}
+                  disabled={isConnecting || wallet.loading}
                   className="bg-green-600 hover:bg-green-700"
                 >
-                  {isConnecting ? (
+                  {isConnecting || wallet.loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                       Connecting...
@@ -194,7 +230,7 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
                   ) : (
                     <>
                       <Wallet className="w-4 h-4 mr-2" />
-                      Approve Connection
+                      Connect Your Real Wallet
                     </>
                   )}
                 </Button>
@@ -205,6 +241,12 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
                 </Button>
               )}
             </div>
+
+            {wallet.error && (
+              <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                <strong>Error:</strong> {wallet.error}
+              </div>
+            )}
           </motion.div>
         </>
       ) : (
@@ -213,15 +255,35 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
           animate={{ opacity: 1, scale: 1 }}
           className="space-y-6"
         >
-          {/* Connected State */}
+          {/* Connected State - REAL DATA */}
           <div className="p-8 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 text-white text-center"
                style={{ boxShadow: '0 8px 24px rgba(16, 185, 129, 0.3)' }}>
             <CheckCircle className="w-16 h-16 mx-auto mb-4" />
             <h4 className="text-white mb-2">Wallet Connected!</h4>
-            <p className="text-white/90 mb-4">You can now interact with the DApp safely</p>
-            <div className="inline-block px-4 py-2 rounded-lg bg-white/20 backdrop-blur">
-              <p className="text-sm text-white">0.0.123456</p>
+            <p className="text-white/90 mb-4">You're now connected to this DApp with your real wallet</p>
+
+            <div className="space-y-2">
+              <div className="inline-block px-4 py-2 rounded-lg bg-white/20 backdrop-blur">
+                <p className="text-xs text-white/80 mb-1">Hedera Account ID</p>
+                <p className="text-sm text-white font-mono">{wallet.accountId || 'N/A'}</p>
+              </div>
+
+              <div className="inline-block px-4 py-2 rounded-lg bg-white/20 backdrop-blur ml-2">
+                <p className="text-xs text-white/80 mb-1">Balance</p>
+                <p className="text-sm text-white font-semibold">{wallet.balance.toFixed(4)} ℏ</p>
+              </div>
             </div>
+
+            {wallet.accountId && (
+              <a
+                href={`https://hashscan.io/testnet/account/${wallet.accountId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm text-white"
+              >
+                View on HashScan <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
           </div>
 
           {/* What You Can Do Now */}
@@ -281,8 +343,8 @@ export function WalletConnectionDemo({ onInteract }: WalletConnectionDemoProps) 
               <strong>🌍 Why This Matters in Africa:</strong>
             </p>
             <p className="text-gray-700">
-              Unlike mobile money where the company (MTN, Safaricom) has full control, with DApps YOU stay in control. 
-              The connection just allows the DApp to show your balances and request transactions - but you approve every 
+              Unlike mobile money where the company (MTN, Safaricom) has full control, with DApps YOU stay in control.
+              The connection just allows the DApp to show your balances and request transactions - but you approve every
               single action. No one can freeze your account or block your access!
             </p>
           </div>
