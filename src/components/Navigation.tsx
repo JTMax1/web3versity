@@ -34,12 +34,7 @@ export function Navigation() {
         // Provide user-friendly error messages
         let errorMsg = error.message || 'Failed to connect wallet';
 
-        // Simplify WalletConnect errors
-        if (errorMsg.includes('Failed to publish')) {
-          errorMsg = 'Please open your wallet app (HashPack or Blade) and visit this site from within the wallet browser to connect.';
-        } else if (errorMsg.includes('WalletConnect')) {
-          errorMsg = 'Mobile wallet connection requires opening the site from your wallet app browser.';
-        }
+        
 
         toast.error('Connection failed', {
           description: errorMsg,
