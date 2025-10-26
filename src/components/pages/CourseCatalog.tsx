@@ -77,7 +77,10 @@ export function CourseCatalog() {
 
   const handleEnrollClick = async (courseId: string) => {
     if (!user?.id) {
-      toast.error('Please connect your wallet first');
+      toast.error('Please connect your wallet to enroll in courses', {
+        description: 'Click "Connect Wallet" in the top right corner to get started',
+        duration: 5000,
+      });
       return;
     }
 

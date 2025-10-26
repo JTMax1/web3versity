@@ -24,24 +24,21 @@ function AppContent() {
       <Navigation />
 
       <Routes>
-        {/* Public Routes */}
+        {/* Public Routes - No authentication required */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/verify" element={<VerifyCertificate />} />
 
-        {/* Protected Routes */}
+        {/* Guest-Accessible Routes - Can view but actions require auth */}
+        <Route path="/courses" element={<CourseCatalog />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/community" element={<Community discussions={mockDiscussions} />} />
+
+        {/* Protected Routes - Require authentication */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
               <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/courses"
-          element={
-            <ProtectedRoute>
-              <CourseCatalog />
             </ProtectedRoute>
           }
         />
@@ -62,26 +59,10 @@ function AppContent() {
           }
         />
         <Route
-          path="/leaderboard"
-          element={
-            <ProtectedRoute>
-              <Leaderboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/faucet"
           element={
             <ProtectedRoute>
               <Faucet />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/community"
-          element={
-            <ProtectedRoute>
-              <Community discussions={mockDiscussions} />
             </ProtectedRoute>
           }
         />
@@ -107,6 +88,51 @@ function AppContent() {
             borderRadius: '16px',
             padding: '16px',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+          },
+          success: {
+            style: {
+              background: '#10B981',
+              color: '#fff',
+              border: '2px solid #059669',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#10B981',
+            },
+          },
+          error: {
+            style: {
+              background: '#EF4444',
+              color: '#fff',
+              border: '2px solid #DC2626',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#EF4444',
+            },
+          },
+          loading: {
+            style: {
+              background: '#F59E0B',
+              color: '#fff',
+              border: '2px solid #D97706',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#F59E0B',
+            },
+          },
+          // Warning uses same as loading (orange)
+          warning: {
+            style: {
+              background: '#F59E0B',
+              color: '#fff',
+              border: '2px solid #D97706',
+            },
+            iconTheme: {
+              primary: '#fff',
+              secondary: '#F59E0B',
+            },
           },
         }}
       />
