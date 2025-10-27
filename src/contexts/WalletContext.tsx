@@ -1,22 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { BrowserProvider } from 'ethers';
 import {
   connectWallet as connectMetamask,
   disconnectWallet,
   getBalance,
   listenToAccountChanges,
   listenToChainChanges,
-  detectMetamask,
-  isWalletConnected,
   parseMetamaskError,
-  formatAccountId,
-  formatEvmAddress,
 } from '@/lib/hederaUtils';
 import {
-  authenticateWithWallet,
-  getUserProfile,
-  AuthenticationError,
-} from '@/lib/auth/wallet-auth';
+  requestWalletSignature,
+  authenticateWithSignature,
+} from '@/lib/auth/wallet-signature';
+import { supabase } from '@/lib/supabase';
 import type { User } from '@/lib/supabase/types';
+import type { Session } from '@supabase/supabase-js';
 
 interface WalletState {
   connected: boolean;
@@ -27,13 +25,14 @@ interface WalletState {
   loading: boolean;
   error: string | null;
   user: User | null;  // Authenticated user from database
+  session: Session | null;  // Supabase session
   authLoading: boolean;  // Authentication loading state
   authError: string | null;  // Authentication error
 }
 
 interface WalletContextType extends WalletState {
   connect: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   refreshBalance: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -50,69 +49,112 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     loading: false,
     error: null,
     user: null,
+    session: null,
     authLoading: false,
     authError: null,
   });
 
-  // Connect wallet
+  // Connect wallet with signature-based authentication
   const connect = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null, authLoading: true, authError: null }));
 
     try {
       // 1. Connect Metamask wallet
-      const result = await connectMetamask();
+      const walletResult = await connectMetamask();
+      console.log('✅ Wallet connected:', walletResult.evmAddress);
 
-      // 2. Fetch balance
-      const balance = await getBalance(result.evmAddress);
-
-      // 3. Authenticate with database (create/retrieve user)
-      let user: User | null = null;
-      let authError: string | null = null;
-
-      try {
-        user = await authenticateWithWallet(result.evmAddress, result.accountId);
-        console.log('User authenticated:', user.id);
-      } catch (error) {
-        console.error('Authentication failed:', error);
-        authError = error instanceof AuthenticationError
-          ? error.message
-          : 'Authentication failed';
+      // 2. Create ethers provider for signing
+      if (!window.ethereum) {
+        throw new Error('No Ethereum provider found');
       }
 
-      setState({
-        connected: true,
-        account: result.evmAddress,
-        accountId: result.accountId,
-        balance,
-        network: result.network,
-        loading: false,
-        error: null,
-        user,
-        authLoading: false,
-        authError,
+      const provider = new BrowserProvider(window.ethereum);
+
+      // 3. Request signature from user
+      console.log('🖊️ Requesting wallet signature...');
+      const { signature, message } = await requestWalletSignature(
+        walletResult.evmAddress,
+        provider
+      );
+      console.log('✅ Signature obtained');
+
+      // 4. Authenticate with backend (verify signature, create/update user, get JWT)
+      console.log('🔐 Authenticating with backend...');
+      const authResult = await authenticateWithSignature(
+        walletResult.evmAddress,
+        signature,
+        message,
+        walletResult.accountId
+      );
+      console.log('✅ Backend authentication successful');
+
+      // 5. Set Supabase session with JWT tokens
+      console.log('🔐 Setting Supabase session...');
+      console.log('  📏 Access token length:', authResult.access_token?.length || 0);
+      console.log('  📏 Refresh token length:', authResult.refresh_token?.length || 0);
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: authResult.access_token,
+        refresh_token: authResult.refresh_token,
       });
 
-      // Persist connection
-      localStorage.setItem('walletConnected', 'true');
-      localStorage.setItem('walletAddress', result.evmAddress);
-      if (user) {
-        localStorage.setItem('userId', user.id);
+      if (sessionError) {
+        console.error('❌ Failed to set Supabase session:', sessionError);
+        console.error('Session error details:', sessionError);
+        throw new Error('Failed to establish authentication session');
       }
+
+      console.log('✅ Supabase session established');
+      console.log('  🆔 Session ID:', sessionData.session?.id);
+      console.log('  ⏰ Session expires at:', sessionData.session?.expires_at);
+
+      // 6. Fetch balance
+      const balance = await getBalance(walletResult.evmAddress);
+
+      // 7. Update state with all data
+      setState({
+        connected: true,
+        account: walletResult.evmAddress,
+        accountId: walletResult.accountId,
+        balance,
+        network: walletResult.network,
+        loading: false,
+        error: null,
+        user: authResult.user,
+        session: sessionData.session,
+        authLoading: false,
+        authError: null,
+      });
+
+      console.log('✅ Wallet connection complete');
     } catch (error: any) {
-      const errorMessage = parseMetamaskError(error);
+      console.error('❌ Wallet connection failed:', error);
+
+      const errorMessage = error.message || parseMetamaskError(error);
+
       setState(prev => ({
         ...prev,
         loading: false,
         error: errorMessage,
         authLoading: false,
+        authError: errorMessage,
       }));
+
       throw error;
     }
   }, []);
 
-  // Disconnect wallet
-  const disconnect = useCallback(() => {
+  // Disconnect wallet and clear session
+  const disconnect = useCallback(async () => {
+    console.log('🔌 Disconnecting wallet...');
+
+    // Sign out from Supabase
+    await supabase.auth.signOut();
+
+    // Disconnect wallet
     disconnectWallet();
+
+    // Reset state
     setState({
       connected: false,
       account: null,
@@ -122,13 +164,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       loading: false,
       error: null,
       user: null,
+      session: null,
       authLoading: false,
       authError: null,
     });
-    // Clear ALL wallet persistence data on disconnect
-    localStorage.removeItem('walletConnected');
-    localStorage.removeItem('walletAddress');
-    localStorage.removeItem('userId');
+
+    console.log('✅ Wallet disconnected');
   }, []);
 
   // Refresh balance
@@ -143,93 +184,193 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.account]);
 
-  // Refresh user data
+  // Refresh user data from database
   const refreshUser = useCallback(async () => {
-    if (!state.user) return;
+    if (!state.session) return;
 
     setState(prev => ({ ...prev, authLoading: true, authError: null }));
 
     try {
-      const user = await getUserProfile(state.user.id);
+      // Get user ID from session metadata
+      const userId = state.session.user.user_metadata?.user_id;
+
+      if (!userId) {
+        throw new Error('User ID not found in session');
+      }
+
+      // Fetch fresh user data
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error || !user) {
+        throw new Error('Failed to fetch user data');
+      }
+
       setState(prev => ({
         ...prev,
         user,
         authLoading: false,
         authError: null,
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to refresh user:', error);
-      const authError = error instanceof AuthenticationError
-        ? error.message
-        : 'Failed to refresh user data';
       setState(prev => ({
         ...prev,
         authLoading: false,
-        authError,
+        authError: error.message || 'Failed to refresh user data',
       }));
     }
-  }, [state.user]);
+  }, [state.session]);
 
-  // Auto-reconnect on mount
+  // Auto-restore session on mount
   useEffect(() => {
-    const autoConnect = async () => {
-      // Check if any Web3 wallet is available (not just Metamask)
-      if (typeof window === 'undefined' || !window.ethereum) return;
-
-      const wasConnected = localStorage.getItem('walletConnected') === 'true';
-      if (!wasConnected) return;
-
-      console.log('🔄 Attempting auto-reconnect...');
+    const restoreSession = async () => {
+      console.log('🔄 Checking for existing session...');
 
       try {
-        // Use eth_accounts (doesn't trigger popup) to check if wallet is accessible
-        const accounts = await window.ethereum.request({
-          method: 'eth_accounts',
-        }) as string[];
+        // Check if Supabase session exists
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (accounts && accounts.length > 0) {
-          console.log('✅ Found connected account, restoring session...');
-          // Wallet is already connected, just restore the state
-          await connect();
-        } else {
-          console.log('⚠️ No connected accounts found, clearing auto-connect flag');
-          localStorage.removeItem('walletConnected');
+        if (error) {
+          console.error('❌ Session check failed:', error);
+          return;
         }
+
+        if (!session) {
+          console.log('ℹ️ No existing session found');
+          return;
+        }
+
+        console.log('✅ Found existing session, restoring wallet state...');
+
+        // Extract wallet info from session metadata
+        const walletAddress = session.user.user_metadata?.wallet_address;
+        const hederaAccountId = session.user.user_metadata?.hedera_account_id;
+        const userId = session.user.user_metadata?.user_id;
+
+        if (!walletAddress || !userId) {
+          console.warn('⚠️ Invalid session metadata, signing out');
+          await supabase.auth.signOut();
+          return;
+        }
+
+        // Check if wallet is still connected
+        if (window.ethereum) {
+          const accounts = await window.ethereum.request({
+            method: 'eth_accounts',
+          }) as string[];
+
+          if (!accounts || accounts.length === 0 || accounts[0].toLowerCase() !== walletAddress.toLowerCase()) {
+            console.warn('⚠️ Wallet not connected, signing out');
+            await supabase.auth.signOut();
+            return;
+          }
+        } else {
+          console.warn('⚠️ No Ethereum provider found');
+          return;
+        }
+
+        // Fetch user data
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (userError || !user) {
+          console.error('❌ Failed to fetch user:', userError);
+          await supabase.auth.signOut();
+          return;
+        }
+
+        // Fetch balance
+        const balance = await getBalance(walletAddress);
+
+        // Restore state
+        setState({
+          connected: true,
+          account: walletAddress,
+          accountId: hederaAccountId || null,
+          balance,
+          network: 'testnet',
+          loading: false,
+          error: null,
+          user,
+          session,
+          authLoading: false,
+          authError: null,
+        });
+
+        console.log('✅ Session restored successfully');
       } catch (error) {
-        console.error('❌ Auto-reconnect failed:', error);
-        // Clear the flag if auto-reconnect fails
-        localStorage.removeItem('walletConnected');
+        console.error('❌ Session restoration failed:', error);
       }
     };
 
-    // Delay auto-connect slightly to ensure Metamask is fully initialized
-    const timer = setTimeout(autoConnect, 500);
-    return () => clearTimeout(timer);
-  }, [connect]);
+    restoreSession();
+  }, []);
+
+  // Listen to Supabase auth changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: string, session: Session | null) => {
+      console.log('🔐 Auth state changed:', event);
+
+      if (event === 'SIGNED_OUT') {
+        // Clear wallet state when signed out
+        setState((prev: WalletState) => ({
+          ...prev,
+          connected: false,
+          account: null,
+          accountId: null,
+          user: null,
+          session: null,
+        }));
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        // Update session when token is refreshed
+        setState((prev: WalletState) => ({
+          ...prev,
+          session,
+        }));
+      } else if (event === 'SIGNED_IN' && session) {
+        // Update session on sign in
+        setState((prev: WalletState) => ({
+          ...prev,
+          session,
+        }));
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Listen to account changes
   useEffect(() => {
-    // Check if any Web3 wallet is available (not just Metamask)
     if (typeof window === 'undefined' || !window.ethereum || !state.connected) return;
 
-    const cleanup = listenToAccountChanges((accounts) => {
+    const cleanup = listenToAccountChanges(async (accounts: string[]) => {
       if (accounts.length === 0) {
-        disconnect();
-      } else if (accounts[0] !== state.account) {
-        // Account changed, reconnect
-        connect();
+        console.log('⚠️ Wallet disconnected');
+        await disconnect();
+      } else if (accounts[0].toLowerCase() !== state.account?.toLowerCase()) {
+        console.log('⚠️ Account changed, reconnecting...');
+        await disconnect();
+        // User can manually reconnect with new account
       }
     });
 
     return cleanup;
-  }, [state.connected, state.account, connect, disconnect]);
+  }, [state.connected, state.account, disconnect]);
 
   // Listen to chain changes
   useEffect(() => {
-    // Check if any Web3 wallet is available (not just Metamask)
     if (typeof window === 'undefined' || !window.ethereum || !state.connected) return;
 
-    const cleanup = listenToChainChanges(async (chainIdHex) => {
+    const cleanup = listenToChainChanges(async (chainIdHex: string) => {
       const chainId = parseInt(chainIdHex, 16);
       const isHederaTestnet = chainId === 296;
 
@@ -237,19 +378,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
       if (!isHederaTestnet) {
         console.warn('⚠️ Switched away from Hedera Testnet. Some features may not work.');
-        // Optionally prompt user to switch back
-        // For now, just refresh connection which will attempt to switch back
-      connect();
+        // Refresh balance (will fail gracefully on wrong network)
+        refreshBalance();
       } else {
         console.log('✅ On Hedera Testnet');
-        // Just refresh balance and user data
         refreshBalance();
         refreshUser();
       }
     });
 
     return cleanup;
-  }, [state.connected, connect]);
+  }, [state.connected, refreshBalance, refreshUser]);
 
   return (
     <WalletContext.Provider value={{ ...state, connect, disconnect, refreshBalance, refreshUser }}>

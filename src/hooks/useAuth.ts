@@ -63,10 +63,18 @@ export interface AuthHookReturn {
 export function useAuth(): AuthHookReturn {
   const wallet = useWallet();
 
+  // User is authenticated if:
+  // 1. Wallet is connected
+  // 2. User data exists
+  // 3. Supabase session exists (new session-based auth)
+  const isAuthenticated = wallet.connected &&
+                         wallet.user !== null &&
+                         (wallet as any).session !== null;
+
   return {
     // User state
     user: wallet.user,
-    isAuthenticated: wallet.connected && wallet.user !== null,
+    isAuthenticated,
 
     // Loading states
     loading: wallet.loading || wallet.authLoading,
