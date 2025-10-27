@@ -4,6 +4,7 @@
     "private": true,
     "type": "module",
     "dependencies": {
+        "@google/genai": "^1.27.0",
         "@hashgraph/sdk": "^2.75.0",
         "@jsr/supabase__supabase-js": "^2.49.8",
         "@radix-ui/react-accordion": "^1.2.3",
@@ -40,6 +41,7 @@
         "date-fns": "^4.1.0",
         "dotenv": "^17.2.3",
         "embla-carousel-react": "^8.6.0",
+        "ethers": "^6.15.0",
         "hono": "*",
         "input-otp": "^1.4.2",
         "lucide-react": "^0.487.0",
@@ -55,12 +57,15 @@
         "recharts": "^2.15.2",
         "sonner": "^2.0.3",
         "tailwind-merge": "*",
-        "vaul": "^1.1.2"
+        "vaul": "^1.1.2",
+        "zod": "^4.1.12"
     },
     "devDependencies": {
+        "@tailwindcss/vite": "^4.0.0",
         "@types/node": "^20.10.0",
         "@types/qrcode": "^1.5.5",
         "@vitejs/plugin-react-swc": "^3.10.2",
+        "tailwindcss": "^4.0.0",
         "ts-node": "^10.9.2",
         "tsx": "^4.20.6",
         "typescript": "^5.9.3",
