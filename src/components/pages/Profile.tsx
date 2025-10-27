@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock, Download, ChevronDown, ChevronUp, Mail } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { useWallet } from '../../contexts/WalletContext';
 import { useUserStats } from '../../hooks/useStats';
@@ -34,6 +34,8 @@ export function Profile() {
   const [editedUsername, setEditedUsername] = useState(user.username || '');
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);
   const [editedAvatar, setEditedAvatar] = useState(user.avatar_emoji || '👤');
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmail, setEditedEmail] = useState(user.email || '');
   const [showBalance, setShowBalance] = useState(false);
   const [certificateModal, setCertificateModal] = useState<{ show: boolean; courseId: string; courseName: string }>({
     show: false,
@@ -96,6 +98,34 @@ export function Profile() {
   const handleCancelAvatarEdit = () => {
     setEditedAvatar(user.avatar_emoji || '👤');
     setIsEditingAvatar(false);
+  };
+
+  const handleSaveEmail = async () => {
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (editedEmail && !emailRegex.test(editedEmail)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    const result = await updateProfile.mutateAsync({
+      userId: user.id,
+      updates: { email: editedEmail.trim() || null }
+    });
+
+    if (result.success) {
+      setIsEditingEmail(false);
+      toast.success('Email updated successfully!');
+      // Refetch user to update context
+      if (refreshUser) refreshUser();
+    } else {
+      toast.error(result.error || 'Failed to update email');
+    }
+  };
+
+  const handleCancelEmailEdit = () => {
+    setEditedEmail(user.email || '');
+    setIsEditingEmail(false);
   };
 
   const earnedBadgesCount = allBadges?.filter(b => b.earned).length || 0;
@@ -197,7 +227,53 @@ export function Profile() {
               </div>
 
               {/* Member Since */}
-              <p className="text-gray-600 mb-4">Member since {memberSince}</p>
+              <p className="text-gray-600 mb-2">Member since {memberSince}</p>
+
+              {/* Email with Edit */}
+              <div className="flex items-center justify-center md:justify-start gap-2 mb-4">
+                {isEditingEmail ? (
+                  <>
+                    <input
+                      type="email"
+                      value={editedEmail}
+                      onChange={(e) => setEditedEmail(e.target.value)}
+                      placeholder="your.email@example.com"
+                      className="px-3 py-1 border-2 border-[#0084C7] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7]/50 text-sm"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveEmail}
+                      className="p-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-[0_4px_12px_rgba(34,197,94,0.3)]"
+                      title="Save"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={handleCancelEmailEdit}
+                      className="p-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors shadow-[0_4px_12px_rgba(239,68,68,0.3)]"
+                      title="Cancel"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-600">
+                        {user.email || 'No email set'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setIsEditingEmail(true)}
+                      className="p-2 bg-[#0084C7]/10 text-[#0084C7] rounded-xl hover:bg-[#0084C7]/20 transition-colors"
+                      title="Edit Email"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+              </div>
               
               {/* Stats */}
               <div className="flex flex-wrap gap-6 justify-center md:justify-start">

@@ -126,6 +126,11 @@ export function Navigation() {
                   active={location.pathname === '/dashboard'}
                 />
                 <NavButton
+                  label="AI Generator ✨"
+                  to="/ai/generate"
+                  active={location.pathname === '/ai/generate'}
+                />
+                <NavButton
                   label="Playground"
                   to="/playground"
                   active={location.pathname === '/playground'}
