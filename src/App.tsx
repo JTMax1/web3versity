@@ -11,6 +11,7 @@ import { Faucet } from './components/pages/Faucet';
 import { Community } from './components/pages/Community';
 import { Profile } from './components/pages/Profile';
 import VerifyCertificate from './components/pages/VerifyCertificate';
+import { AIGenerator } from './components/pages/AIGenerator';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { mockDiscussions } from './lib/mockData';
 import { Toaster } from './components/ui/sonner';
@@ -71,6 +72,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ai/generate"
+          element={
+            <ProtectedRoute>
+              <AIGenerator />
             </ProtectedRoute>
           }
         />
