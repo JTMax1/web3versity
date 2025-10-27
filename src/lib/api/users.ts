@@ -12,6 +12,7 @@ import type { User } from '../supabase/types';
 
 export interface UpdateUserProfileInput {
   username?: string;
+  email?: string | null;
   avatar_emoji?: string;
   bio?: string;
   location?: string;
@@ -50,6 +51,23 @@ export async function updateUserProfile(
         return {
           success: false,
           error: 'Username is already taken'
+        };
+      }
+    }
+
+    // Check if email is being updated and if it's already taken
+    if (updates.email) {
+      const { data: existingEmail } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', updates.email)
+        .neq('id', userId)
+        .maybeSingle();
+
+      if (existingEmail) {
+        return {
+          success: false,
+          error: 'Email is already in use'
         };
       }
     }

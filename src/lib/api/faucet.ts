@@ -152,16 +152,24 @@ export async function requestFaucetHBAR(
  */
 export async function getFaucetHistory(limit: number = 20): Promise<FaucetHistoryEntry[]> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    // Get session to access user metadata
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!session) {
+      return [];
+    }
+
+    // Extract our custom user ID from session metadata
+    const userId = session.user.user_metadata?.user_id;
+    if (!userId) {
+      console.error('User ID not found in session metadata');
       return [];
     }
 
     const { data, error } = await supabase
       .from('faucet_requests')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('requested_at', { ascending: false }) // Using requested_at from your schema
       .limit(limit);
 
