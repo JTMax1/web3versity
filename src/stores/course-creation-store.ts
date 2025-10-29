@@ -353,16 +353,35 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             return false;
           }
 
+          // Get database user ID from JWT metadata (fix for auth issue)
+          const dbUserId = user.user_metadata?.user_id;
+          if (!dbUserId) {
+            toast.error('User not properly registered');
+            return false;
+          }
+
+          // Generate draft ID if creating new draft
+          let draftId = draft.id;
+          if (!draftId) {
+            // Generate unique draft ID in format: draft_TIMESTAMP_RANDOM
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(2, 6);
+            draftId = `draft_${timestamp}_${random}`;
+          }
+
+          // course_drafts table expects course_data as JSONB
           const draftData = {
-            creator_id: user.id,
-            title: draft.title,
-            description: draft.description,
-            track: draft.track,
-            difficulty: draft.difficulty,
-            estimated_hours: draft.estimatedHours,
-            image_url: draft.imageUrl,
-            learning_objectives: draft.learningObjectives,
-            lessons: draft.lessons,
+            creator_id: dbUserId,
+            course_data: {
+              title: draft.title,
+              description: draft.description,
+              track: draft.track,
+              difficulty: draft.difficulty,
+              estimated_hours: draft.estimatedHours,
+              image_url: draft.imageUrl,
+              learning_objectives: draft.learningObjectives,
+              lessons: draft.lessons,
+            },
             draft_status: draft.draftStatus || 'draft',
             updated_at: new Date().toISOString(),
           };
@@ -384,6 +403,7 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             const { data, error } = await supabase
               .from('course_drafts')
               .insert({
+                id: draftId,
                 ...draftData,
                 created_at: new Date().toISOString(),
               })
@@ -421,16 +441,19 @@ export const useCourseCreationStore = create<CourseCreationState>()(
 
           if (error) throw error;
 
+          // Extract from course_data JSONB field
+          const courseData = data.course_data || {};
+
           const loadedDraft: CourseDraft = {
             id: data.id,
-            title: data.title,
-            description: data.description,
-            track: data.track,
-            difficulty: data.difficulty,
-            estimatedHours: data.estimated_hours,
-            imageUrl: data.image_url,
-            learningObjectives: data.learning_objectives || [],
-            lessons: data.lessons || [],
+            title: courseData.title || '',
+            description: courseData.description || '',
+            track: courseData.track || 'explorer',
+            difficulty: courseData.difficulty || 'beginner',
+            estimatedHours: courseData.estimated_hours || 1,
+            imageUrl: courseData.image_url,
+            learningObjectives: courseData.learning_objectives || [],
+            lessons: courseData.lessons || [],
             creatorId: data.creator_id,
             draftStatus: data.draft_status,
             createdAt: data.created_at,
@@ -493,10 +516,17 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             return false;
           }
 
+          // Get database user ID from JWT metadata (fix for auth issue)
+          const dbUserId = user.user_metadata?.user_id;
+          if (!dbUserId) {
+            toast.error('User not properly registered');
+            return false;
+          }
+
           // Call submit_draft_for_review RPC function
           const { error } = await supabase.rpc('submit_draft_for_review', {
             p_draft_id: draft.id,
-            p_creator_id: user.id,
+            p_creator_id: dbUserId,
           });
 
           if (error) throw error;

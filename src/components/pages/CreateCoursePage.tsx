@@ -6,23 +6,26 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CourseWizard } from '../course-creation/CourseWizard';
+import { useCourseCreationStore } from '../../stores/course-creation-store';
 import { Button } from '../ui/button';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function CreateCoursePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { resetStore, loadDraft } = useCourseCreationStore();
   const [isEducator, setIsEducator] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkEducatorStatus();
+    checkEducatorStatusAndInitialize();
   }, []);
 
-  const checkEducatorStatus = async () => {
+  const checkEducatorStatusAndInitialize = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -54,6 +57,17 @@ export function CreateCoursePage() {
 
       if (!data?.is_educator) {
         toast.error('You need educator permissions to create courses');
+        return;
+      }
+
+      // Handle draft loading or reset
+      const draftId = searchParams.get('draft');
+      if (draftId) {
+        // Load existing draft
+        await loadDraft(draftId);
+      } else {
+        // Reset store for new course
+        resetStore();
       }
     } catch (error) {
       console.error('Error checking educator status:', error);

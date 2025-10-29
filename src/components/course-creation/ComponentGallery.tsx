@@ -6,17 +6,11 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { INTERACTIVE_TYPES, InteractiveType } from '../../lib/course-creation/interactive-types';
 import { PRACTICAL_TYPES, PracticalType } from '../../lib/course-creation/practical-types';
 import { Button } from '../ui/button';
 import { Search, X, AlertCircle, CheckCircle, Clock, Filter } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
 
 type ComponentType = 'interactive' | 'practical';
 
@@ -258,92 +252,126 @@ export function ComponentGallery({ onSelect, onClose }: ComponentGalleryProps) {
       </div>
 
       {/* Preview Modal */}
-      {previewComponent && (
-        <Dialog open={!!previewComponent} onOpenChange={() => setPreviewComponent(null)}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-4xl">{previewComponent.emoji}</span>
-                <div className="flex-1">
-                  <DialogTitle className="text-2xl">{previewComponent.name}</DialogTitle>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${getDifficultyColor(previewComponent.difficulty)}`}>
-                      {previewComponent.difficulty}
-                    </span>
-                    <span className="text-sm text-gray-600 flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      {previewComponent.estimatedMinutes} minutes
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <DialogDescription className="text-base text-gray-700">
-                {previewComponent.description}
-              </DialogDescription>
-            </DialogHeader>
+      <AnimatePresence>
+        {previewComponent && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPreviewComponent(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
 
-            <div className="space-y-4 mt-4">
-              {/* Category */}
-              {'category' in previewComponent && (
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Category</h4>
-                  <span className="bg-gray-100 px-3 py-1 rounded-full text-sm">
-                    {previewComponent.category}
-                  </span>
-                </div>
-              )}
+            {/* Modal */}
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: 'spring', duration: 0.5 }}
+                className="relative w-full max-w-2xl max-h-[80vh] overflow-y-auto pointer-events-auto"
+              >
+                <div className="bg-white rounded-3xl shadow-[0_24px_96px_rgba(0,132,199,0.25)] p-8">
+                  {/* Close Button */}
+                  <button
+                    onClick={() => setPreviewComponent(null)}
+                    className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition-colors z-10"
+                    aria-label="Close preview"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
 
-              {/* Tags */}
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
-                <div className="flex flex-wrap gap-2">
-                  {previewComponent.tags.map((tag, index) => (
-                    <span key={index} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Testnet Warning */}
-              {'requiresTestnet' in previewComponent && previewComponent.requiresTestnet && (
-                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-orange-900 mb-1">Testnet Required</p>
-                      <p className="text-sm text-orange-800">{previewComponent.warning}</p>
+                  {/* Header */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-4xl">{previewComponent.emoji}</span>
+                    <div className="flex-1">
+                      <h3 className="text-2xl font-bold text-gray-900">{previewComponent.name}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span
+                          className={`text-xs font-semibold px-2 py-1 rounded-full ${getDifficultyColor(
+                            previewComponent.difficulty
+                          )}`}
+                        >
+                          {previewComponent.difficulty}
+                        </span>
+                        <span className="text-sm text-gray-600 flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {previewComponent.estimatedMinutes} minutes
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Prerequisites */}
-              {'prerequisites' in previewComponent && (
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-2">Prerequisites</h4>
-                  <ul className="space-y-2">
-                    {previewComponent.prerequisites.map((prereq, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
-                        <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                        <span>{prereq}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                  {/* Description */}
+                  <p className="text-base text-gray-700 mb-6">{previewComponent.description}</p>
 
-              {/* Add Button */}
-              <Button
-                onClick={() => handleSelect(previewComponent.id)}
-                className="w-full bg-[#0084C7] text-white rounded-xl py-6 text-lg"
-              >
-                Add to Lesson
-              </Button>
+                  <div className="space-y-4">
+                    {/* Category */}
+                    {'category' in previewComponent && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">Category</h4>
+                        <span className="bg-gray-100 px-3 py-1 rounded-full text-sm">
+                          {previewComponent.category}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Tags */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {previewComponent.tags.map((tag, index) => (
+                          <span key={index} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Testnet Warning */}
+                    {'requiresTestnet' in previewComponent && previewComponent.requiresTestnet && (
+                      <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-semibold text-orange-900 mb-1">Testnet Required</p>
+                            <p className="text-sm text-orange-800">{previewComponent.warning}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Prerequisites */}
+                    {'prerequisites' in previewComponent && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-2">Prerequisites</h4>
+                        <ul className="space-y-2">
+                          {previewComponent.prerequisites.map((prereq, index) => (
+                            <li key={index} className="flex items-start gap-2 text-sm text-gray-700">
+                              <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
+                              <span>{prereq}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Add Button */}
+                    <Button
+                      onClick={() => handleSelect(previewComponent.id)}
+                      className="w-full bg-[#0084C7] text-white rounded-xl py-6 text-lg"
+                    >
+                      Add to Lesson
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -8,12 +8,13 @@ import { useUserStats, useLeaderboardPosition } from '../../hooks/useStats';
 import { ActivityFeed } from '../dashboard/ActivityFeed';
 import { StreakCalendar } from '../dashboard/StreakCalendar';
 import { ProgressChart } from '../dashboard/ProgressChart';
+import { MyCourses } from '../dashboard/MyCourses';
 import { useWallet } from '../../contexts/WalletContext';
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { user } = useWallet();
-  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'progress' | 'activity' | 'courses'>('overview');
 
   // Fetch real data from database
   const { data: stats, isLoading: statsLoading } = useUserStats(user?.id);
@@ -68,7 +69,7 @@ export function Dashboard() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 mb-8 bg-white rounded-full p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.02),inset_2px_2px_8px_rgba(255,255,255,0.9)] max-w-md">
+        <div className="flex gap-2 mb-8 bg-white rounded-full p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.02),inset_2px_2px_8px_rgba(255,255,255,0.9)] max-w-2xl">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex-1 px-6 py-2 rounded-full transition-all ${
@@ -98,6 +99,16 @@ export function Dashboard() {
             }`}
           >
             Activity
+          </button>
+          <button
+            onClick={() => setActiveTab('courses')}
+            className={`flex-1 px-6 py-2 rounded-full transition-all ${
+              activeTab === 'courses'
+                ? 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white shadow-[0_2px_8px_rgba(0,132,199,0.3)]'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            My Courses
           </button>
         </div>
 
@@ -321,6 +332,11 @@ export function Dashboard() {
               <ActivityFeed userId={user.id} limit={15} />
             </div>
           </div>
+        )}
+
+        {/* My Courses Tab */}
+        {activeTab === 'courses' && user?.id && (
+          <MyCourses userId={user.id} />
         )}
       </div>
     </div>
