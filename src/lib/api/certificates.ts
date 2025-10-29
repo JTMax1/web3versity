@@ -118,20 +118,32 @@ export async function claimCertificate(
   try {
     console.log('🎓 Claiming certificate:', { userId, courseId });
 
-    // Get session for auth
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get session for auth - REQUIRED for certificate claiming
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (!session) {
+      console.error('❌ No session found for certificate claim');
+      return {
+        success: false,
+        error: 'Authentication required. Please connect your wallet first.',
+      };
+    }
+
+    if (sessionError) {
+      console.error('❌ Session error:', sessionError);
+      return {
+        success: false,
+        error: 'Failed to verify authentication session.',
+      };
+    }
+
+    console.log('✅ Valid session found for certificate claim');
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${session.access_token}`,
     };
-
-    // Use JWT if available, otherwise anon key with userId
-    if (session) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
-    } else {
-      headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
-    }
 
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mint-certificate`,
@@ -145,6 +157,13 @@ export async function claimCertificate(
     const result = await response.json();
 
     if (!response.ok) {
+      console.error('❌ Certificate claim failed:', {
+        status: response.status,
+        error: result.error,
+        details: result.details,
+        userId,
+        courseId
+      });
       return {
         success: false,
         error: result.error || 'Failed to claim certificate',

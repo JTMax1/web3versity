@@ -10,6 +10,7 @@ import { Award, X, Sparkles, Share2, Download, Loader2, ExternalLink, CheckCircl
 import { useWallet } from '../contexts/WalletContext';
 import { checkCertificateEligibility, claimCertificate } from '../lib/api/certificates';
 import { associateToken, isTokenAssociated } from '../lib/hederaUtils';
+import { supabase } from '../lib/supabase/client';
 import { env } from '../config';
 
 interface CourseCompleteModalProps {
@@ -27,7 +28,7 @@ export function CourseCompleteModal({
   courseId,
   onClaimCertificate,
 }: CourseCompleteModalProps) {
-  const { user, connected, connect, account } = useWallet();
+  const { user, session, connected, connect, account } = useWallet();
   const [showConfetti, setShowConfetti] = useState(false);
 
   // Certificate claiming state
@@ -110,9 +111,9 @@ export function CourseCompleteModal({
   };
 
   const handleClaimCertificate = async () => {
-    // Check if user exists
-    if (!user || !courseId) {
-      setCertificateError('User not authenticated');
+    // Check if course ID exists
+    if (!courseId) {
+      setCertificateError('Course ID not provided');
       return;
     }
 
@@ -120,11 +121,32 @@ export function CourseCompleteModal({
     setCertificateError(null);
 
     try {
-      // Step 1: Check if wallet is connected, if not connect it first
-      if (!connected || !account) {
+      // Step 1: Check if wallet is connected AND session exists, if not connect it first
+      if (!connected || !account || !session) {
         console.log('🔗 Connecting wallet for certificate claiming...');
         await connect();
-        console.log('✅ Wallet connected');
+        console.log('✅ Wallet connection initiated');
+
+        // Wait a bit for state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Verify session was established after connection by checking Supabase directly
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) {
+          console.error('❌ No session after wallet connection');
+          setCertificateError('Authentication failed. Please try connecting your wallet again.');
+          setCertificateClaiming(false);
+          return;
+        }
+        console.log('✅ Wallet connected and authenticated with session');
+      }
+
+      // Verify user exists after connection
+      if (!user) {
+        console.error('❌ No user after wallet connection');
+        setCertificateError('User not authenticated. Please try connecting your wallet again.');
+        setCertificateClaiming(false);
+        return;
       }
 
       // Step 2: Check if token is associated, if not associate it first
@@ -212,7 +234,7 @@ export function CourseCompleteModal({
             </div>
 
             {/* Title - Compact */}
-            <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-yellow-500 to-orange-500 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">
               Course Complete! 🎉
             </h2>
 

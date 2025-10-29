@@ -52,8 +52,18 @@ serve(async (req) => {
 
         const { data: { user }, error } = await authClient.auth.getUser();
         if (!error && user) {
-          userIdToUse = user.id;
-          console.log('✅ Using JWT user ID');
+          // IMPORTANT: The JWT contains the Auth user ID, but we need the database user ID
+          // The database user ID is stored in user_metadata by wallet-login edge function
+          const databaseUserId = user.user_metadata?.user_id;
+
+          if (databaseUserId) {
+            userIdToUse = databaseUserId;
+            console.log('✅ Using database user ID from JWT metadata:', databaseUserId);
+          } else {
+            // Fallback: use Auth user ID (shouldn't happen with wallet-login)
+            userIdToUse = user.id;
+            console.warn('⚠️ No database user_id in JWT metadata, using Auth user ID:', user.id);
+          }
         }
       }
     }
@@ -72,6 +82,7 @@ serve(async (req) => {
     );
 
     // Check eligibility
+    console.log('🔍 Checking eligibility for:', { userId: userIdToUse, courseId });
     const { data: eligibility, error: eligibilityError } = await supabase
       .rpc('check_certificate_eligibility', {
         p_user_id: userIdToUse,
@@ -80,14 +91,21 @@ serve(async (req) => {
       .single();
 
     if (eligibilityError) {
-      console.error('Eligibility check error:', eligibilityError);
+      console.error('❌ Eligibility check error:', eligibilityError);
       return new Response(
         JSON.stringify({ error: 'Failed to check eligibility' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    console.log('📊 Eligibility result:', eligibility);
+    console.log('   - Eligible:', eligibility.eligible);
+    console.log('   - Completion %:', eligibility.completion_percentage);
+    console.log('   - Already claimed:', eligibility.already_claimed);
+    console.log('   - Reason:', eligibility.reason);
+
     if (!eligibility.eligible) {
+      console.error('❌ User not eligible:', eligibility.reason);
       return new Response(
         JSON.stringify({
           error: eligibility.reason || 'Not eligible to claim certificate',
@@ -99,6 +117,8 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log('✅ User is eligible, proceeding with certificate minting...');
 
     // Fetch user and course data
     const { data: user, error: userError } = await supabase

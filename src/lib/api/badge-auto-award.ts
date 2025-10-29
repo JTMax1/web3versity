@@ -21,8 +21,8 @@ import type { Achievement } from '../supabase/types';
 // ============================================================================
 
 export interface BadgeCriteria {
-  type: 'lessons_completed' | 'courses_completed' | 'perfect_scores' | 'streak_days' | 'total_xp' | 'level_reached' | 'first_lesson' | 'first_course';
-  value: number;
+  type: 'lessons_completed' | 'courses_completed' | 'perfect_scores' | 'streak_days' | 'total_xp' | 'level_reached' | 'first_lesson' | 'first_course' | 'course_id';
+  value: number | string;
   description?: string;
 }
 
@@ -46,6 +46,7 @@ export interface UserStats {
   longest_streak: number;
   total_xp: number;
   current_level: number;
+  completed_course_ids: string[];
 }
 
 // ============================================================================
@@ -80,6 +81,17 @@ async function getUserStats(userId: string): Promise<UserStats | null> {
       console.warn('[getUserStats] Error counting perfect scores:', scoreError);
     }
 
+    // Get completed course IDs
+    const { data: completedCourses, error: coursesError } = await supabase
+      .from('user_progress')
+      .select('course_id')
+      .eq('user_id', userId)
+      .not('completed_at', 'is', null);
+
+    if (coursesError) {
+      console.warn('[getUserStats] Error fetching completed courses:', coursesError);
+    }
+
     return {
       userId,
       lessons_completed: userData.lessons_completed || 0,
@@ -88,7 +100,8 @@ async function getUserStats(userId: string): Promise<UserStats | null> {
       current_streak: userData.current_streak || 0,
       longest_streak: userData.longest_streak || 0,
       total_xp: userData.total_xp || 0,
-      current_level: userData.current_level || 1
+      current_level: userData.current_level || 1,
+      completed_course_ids: completedCourses?.map(c => c.course_id) || []
     };
   } catch (error) {
     console.error('[getUserStats] Unexpected error:', error);
@@ -128,6 +141,10 @@ function doesUserMeetCriteria(stats: UserStats, criteria: BadgeCriteria): boolea
 
     case 'first_course':
       return stats.courses_completed >= 1;
+
+    case 'course_id':
+      // Check if user completed the specific course
+      return stats.completed_course_ids.includes(criteria.value as string);
 
     default:
       console.warn('[doesUserMeetCriteria] Unknown criteria type:', criteria.type);

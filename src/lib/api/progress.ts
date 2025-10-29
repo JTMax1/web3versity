@@ -220,6 +220,17 @@ export async function markLessonComplete(
     }
     console.log('[markLessonComplete] Lesson completion inserted successfully');
 
+    // Step 3.5: Increment lessons_completed counter
+    console.log('[markLessonComplete] Incrementing lessons_completed counter');
+    const { error: counterError } = await supabase.rpc('increment_lessons_completed', {
+      p_user_id: userId
+    });
+
+    if (counterError) {
+      console.warn('[markLessonComplete] Failed to update lessons counter:', counterError);
+      // Non-fatal - continue with rest of flow
+    }
+
     // Step 4: Award XP and update level (track old level for level-up detection)
     let oldLevel = 1;
     let newLevel = 1;
@@ -288,55 +299,37 @@ export async function markLessonComplete(
       }
     }
 
-    // Step 5: Update user_progress
-    // Get current progress with retry logic (handles race conditions)
-    console.log('[markLessonComplete] Fetching user progress for course:', courseId);
+    // Step 5: Wait for database trigger to update progress
+    // The update_course_progress() trigger automatically:
+    // - Counts completed lessons from lesson_completions table
+    // - Updates user_progress (lessons_completed, progress_percentage, completed_at)
+    // - Increments users.courses_completed when course completes
+    console.log('[markLessonComplete] Waiting for database trigger to update progress...');
 
-    let progressData = null;
-    let progressError = null;
-    const maxRetries = 3;
+    // Small delay to ensure trigger completes (triggers run asynchronously)
+    await new Promise(resolve => setTimeout(resolve, 300));
 
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      const result = await supabase
-        .from('user_progress')
-        .select('lessons_completed, total_lessons')
-        .eq('user_id', userId)
-        .eq('course_id', courseId)
-        .maybeSingle();
-
-      progressData = result.data;
-      progressError = result.error;
-
-      if (progressData) {
-        console.log(`[markLessonComplete] Found user progress on attempt ${attempt + 1}`);
-        break;
-      }
-
-      if (progressError) {
-        console.error('[markLessonComplete] Error fetching user progress:', progressError);
-        break;
-      }
-
-      // No data and no error - record doesn't exist yet, retry with backoff
-      if (attempt < maxRetries - 1) {
-        const backoffMs = Math.pow(2, attempt) * 100; // 100ms, 200ms, 400ms
-        console.log(`[markLessonComplete] User progress not found, retrying in ${backoffMs}ms (attempt ${attempt + 1}/${maxRetries})`);
-        await new Promise(resolve => setTimeout(resolve, backoffMs));
-      }
-    }
+    // Step 6: Fetch the UPDATED progress (after trigger ran)
+    const { data: updatedProgress, error: progressError } = await supabase
+      .from('user_progress')
+      .select('lessons_completed, total_lessons, progress_percentage, completed_at')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .maybeSingle();
 
     if (progressError) {
+      console.error('[markLessonComplete] Error fetching updated progress:', progressError);
       return {
         success: false,
         xpEarned: 0,
         newLevel: 1,
         courseComplete: false,
-        error: 'Failed to fetch user progress',
+        error: 'Failed to fetch updated progress',
       };
     }
 
-    if (!progressData) {
-      console.error('[markLessonComplete] No user_progress record found after retries! User may not be enrolled.');
+    if (!updatedProgress) {
+      console.error('[markLessonComplete] No user_progress record found! User may not be enrolled.');
       return {
         success: false,
         xpEarned: 0,
@@ -346,105 +339,48 @@ export async function markLessonComplete(
       };
     }
 
-    // Validate total_lessons to prevent division by zero
-    if (!progressData.total_lessons || progressData.total_lessons === 0) {
-      console.error('[markLessonComplete] Course has 0 lessons!');
-      return {
-        success: false,
-        xpEarned: 0,
-        newLevel: 1,
-        courseComplete: false,
-        error: 'Course has no lessons',
-      };
-    }
+    console.log('[markLessonComplete] Updated progress after trigger:', updatedProgress);
 
-    console.log('[markLessonComplete] Current progress:', progressData);
+    // Step 7: Check if course was just completed by the trigger
+    // Course is complete when lessons_completed reaches total_lessons
+    const courseComplete = updatedProgress.lessons_completed >= updatedProgress.total_lessons;
 
-    const newLessonsCompleted = progressData.lessons_completed + 1;
-    const newProgressPercentage = Math.round(
-      (newLessonsCompleted / progressData.total_lessons) * 100
-    );
+    // Step 8: Award course completion bonus (only on the FINAL lesson)
+    // The trigger sets completed_at when course completes, so check if it's recent
+    if (courseComplete && updatedProgress.completed_at) {
+      const completedTime = new Date(updatedProgress.completed_at).getTime();
+      const now = Date.now();
+      const justCompleted = now - completedTime < 5000; // Within last 5 seconds
 
-    console.log('[markLessonComplete] Updating progress:', { newLessonsCompleted, newProgressPercentage, totalLessons: progressData.total_lessons });
+      if (justCompleted) {
+        console.log('[markLessonComplete] Course just completed! Awarding bonus XP');
 
-    // Update progress
-    const { error: updateError } = await supabase
-      .from('user_progress')
-      .update({
-        lessons_completed: newLessonsCompleted,
-        progress_percentage: newProgressPercentage,
-        last_accessed_at: new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('course_id', courseId);
+        // Award 100 XP bonus
+        try {
+          const { error: bonusError } = await supabase.rpc('award_xp', {
+            p_user_id: userId,
+            p_xp_amount: 100,
+          });
 
-    if (updateError) {
-      console.error('[markLessonComplete] Error updating user progress:', updateError);
-      return {
-        success: false,
-        xpEarned: 0,
-        newLevel: 1,
-        courseComplete: false,
-        error: 'Failed to update progress',
-      };
-    }
+          if (bonusError) {
+            console.warn('Bonus XP award failed:', bonusError);
+          } else {
+            // Get updated level after bonus
+            const { data: updatedUser } = await supabase
+              .from('users')
+              .select('current_level')
+              .eq('id', userId)
+              .maybeSingle();
 
-    // Step 6: Check if course is complete (compare actual counts, not percentages)
-    const courseComplete = newLessonsCompleted >= progressData.total_lessons;
-
-    // Step 7: Award course completion bonus
-    if (courseComplete) {
-      console.log('[markLessonComplete] Course completed! Awarding bonus XP');
-      // Mark course as complete
-      await supabase
-        .from('user_progress')
-        .update({
-          completed_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-        .eq('course_id', courseId);
-
-      // Award 100 XP bonus
-      try {
-        const { error: bonusError } = await supabase.rpc('award_xp', {
-          p_user_id: userId,
-          p_xp_amount: 100,
-        });
-
-        if (bonusError) {
-          console.warn('Bonus XP award failed:', bonusError);
+            newLevel = updatedUser?.current_level || newLevel;
+          }
+        } catch (err) {
+          console.error('Error awarding bonus XP:', err);
         }
-      } catch (err) {
-        console.error('Error awarding bonus XP:', err);
       }
-
-      // Increment user's courses_completed count
-      const { data: currentUserData } = await supabase
-        .from('users')
-        .select('courses_completed')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (currentUserData) {
-        await supabase
-          .from('users')
-          .update({
-            courses_completed: currentUserData.courses_completed + 1,
-          })
-          .eq('id', userId);
-      }
-
-      // Get updated level after bonus
-      const { data: updatedUser } = await supabase
-        .from('users')
-        .select('current_level')
-        .eq('id', userId)
-        .maybeSingle();
-
-      newLevel = updatedUser?.current_level || newLevel;
     }
 
-    // Step 8: Check and award badges
+    // Step 9: Check and award badges
     console.log('[markLessonComplete] Checking for badge awards...');
     const badgesEarned = await checkAndAwardBadges(userId);
 

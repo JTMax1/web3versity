@@ -519,6 +519,7 @@ export function CourseViewer() {
           navigate('/dashboard');
         }}
         courseName={course?.title || ''}
+        courseId={courseId || ''}
       />
     </div>
   );
