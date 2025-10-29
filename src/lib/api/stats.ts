@@ -15,6 +15,7 @@ export interface UserStats {
   userId: string;
   username: string;
   avatarEmoji: string;
+  isEducator: boolean;
 
   // XP & Leveling
   totalXp: number;
@@ -216,6 +217,7 @@ export async function getUserStats(userId: string): Promise<UserStats> {
       userId: user.id,
       username: user.username,
       avatarEmoji: user.avatar_emoji,
+      isEducator: user.is_educator || false,
 
       totalXp: user.total_xp,
       currentLevel: user.current_level,

@@ -12,6 +12,8 @@ import { Community } from './components/pages/Community';
 import { Profile } from './components/pages/Profile';
 import VerifyCertificate from './components/pages/VerifyCertificate';
 import { AIGenerator } from './components/pages/AIGenerator';
+import { CreateCoursePage } from './components/pages/CreateCoursePage';
+import { AdminReviewDashboard } from './components/admin/AdminReviewDashboard';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { mockDiscussions } from './lib/mockData';
 import { Toaster } from './components/ui/sonner';
@@ -80,6 +82,22 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <AIGenerator />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/create-course"
+          element={
+            <ProtectedRoute>
+              <CreateCoursePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/review"
+          element={
+            <ProtectedRoute>
+              <AdminReviewDashboard />
             </ProtectedRoute>
           }
         />

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CourseCard } from '../CourseCard';
-import { Flame, TrendingUp, Award, BookOpen, Trophy, BarChart3, Activity, Star } from 'lucide-react';
+import { Flame, TrendingUp, Award, BookOpen, Trophy, BarChart3, Activity, Star, Plus } from 'lucide-react';
 import { useUserEnrollments, useCompletedCourses } from '../../hooks/useEnrollment';
 import { adaptCourseForComponent } from '../../lib/adapters/courseAdapter';
 import { useUserStats, useLeaderboardPosition } from '../../hooks/useStats';
@@ -43,14 +43,27 @@ export function Dashboard() {
       <div className="container mx-auto px-4">
         {/* Welcome Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#0084C7]/10 to-[#00a8e8]/20 rounded-full flex items-center justify-center text-3xl shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
-              {stats?.avatarEmoji || '👤'}
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#0084C7]/10 to-[#00a8e8]/20 rounded-full flex items-center justify-center text-3xl shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]">
+                {stats?.avatarEmoji || '👤'}
+              </div>
+              <div>
+                <h1 className="mb-1">Welcome back, {stats?.username || user.username}! 👋</h1>
+                <p className="text-gray-600">Continue your Web3 learning journey</p>
+              </div>
             </div>
-            <div>
-              <h1 className="mb-1">Welcome back, {stats?.username || user.username}! 👋</h1>
-              <p className="text-gray-600">Continue your Web3 learning journey</p>
-            </div>
+
+            {/* Educator Create Course Button */}
+            {stats?.isEducator && (
+              <button
+                onClick={() => navigate('/create-course')}
+                className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white px-6 py-3 rounded-full shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] hover:shadow-[0_6px_24px_rgba(0,132,199,0.4),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] transition-all flex items-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Create Course
+              </button>
+            )}
           </div>
         </div>
 
