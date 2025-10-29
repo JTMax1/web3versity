@@ -6,11 +6,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Button } from '../ui/button';
+import { Button } from '../../ui/button';
 import { Send, AlertCircle, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
-import { sendHBAR, estimateTransactionFee, getDynamicTransactionFee, formatTransactionId } from '../../lib/hedera/transactions';
-import { isValidAccountId } from '../../lib/hedera/validation';
-import { useWallet } from '../../contexts/WalletContext';
+import { sendHBAR, estimateTransactionFee, getDynamicTransactionFee, formatTransactionId } from '../../../lib/hedera/transactions';
+import { isValidAccountId } from '../../../lib/hedera/validation';
+import { useWallet } from '../../../contexts/WalletContext';
 import { toast } from 'sonner';
 
 interface TransactionSenderProps {

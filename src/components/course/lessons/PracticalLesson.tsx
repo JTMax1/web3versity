@@ -10,9 +10,9 @@ import React, { useState } from 'react';
 import { CheckCircle, AlertCircle, Sparkles, Trophy, Lightbulb } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Alert, AlertDescription } from '../../ui/alert';
-import { TransactionSender } from '../../practical/TransactionSender';
-import { DeFiSimulator } from '../../practical/DeFiSimulator';
-import { DEXSwapper } from '../../practical/DEXSwapper';
+import { TransactionSender } from '../practical/TransactionSender';
+import { DeFiSimulator } from '../practical/DeFiSimulator';
+import { DEXSwapper } from '../practical/DEXSwapper';
 import { toast } from 'sonner';
 
 interface PracticalLessonProps {

@@ -17,8 +17,8 @@ import {
   getPriceImpactColor,
   getPriceImpactWarning,
   getTokenBySymbol,
-} from '../../lib/dex/simulator';
-import { Button } from '../ui/button';
+} from '../../../lib/dex/simulator';
+import { Button } from '../../ui/button';
 import { ArrowDownUp, Settings, AlertCircle, CheckCircle, Loader2, TrendingDown } from 'lucide-react';
 import { toast } from 'sonner';
 

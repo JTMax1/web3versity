@@ -17,8 +17,8 @@ import {
   getRiskColor,
   formatTVL,
   getPoolById,
-} from '../../lib/defi/simulator';
-import { Button } from '../ui/button';
+} from '../../../lib/defi/simulator';
+import { Button } from '../../ui/button';
 import { TrendingUp, TrendingDown, Info, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
