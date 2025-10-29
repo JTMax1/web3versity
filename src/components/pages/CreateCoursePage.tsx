@@ -32,11 +32,20 @@ export function CreateCoursePage() {
         return;
       }
 
-      // Check if user is an educator
+      // Get database user ID from JWT metadata (same fix as mint-certificate)
+      const dbUserId = user.user_metadata?.user_id;
+
+      if (!dbUserId) {
+        toast.error('User not properly registered');
+        navigate('/dashboard');
+        return;
+      }
+
+      // Check if user is an educator using database user ID
       const { data, error } = await supabase
         .from('users')
         .select('is_educator')
-        .eq('id', user.id)
+        .eq('id', dbUserId)
         .single();
 
       if (error) throw error;
