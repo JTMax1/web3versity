@@ -13,6 +13,7 @@ import type {
   Lesson,
   LessonType,
 } from '../supabase/types';
+import { checkAndAwardBadges, type BadgeAwardResult } from './badge-auto-award';
 
 // ============================================================================
 // Types
@@ -22,7 +23,10 @@ export interface LessonCompleteResult {
   success: boolean;
   xpEarned: number;
   newLevel: number;
+  oldLevel?: number;
+  leveledUp?: boolean;
   courseComplete: boolean;
+  badgesEarned?: BadgeAwardResult[];
   error?: string;
 }
 
@@ -216,8 +220,19 @@ export async function markLessonComplete(
     }
     console.log('[markLessonComplete] Lesson completion inserted successfully');
 
-    // Step 4: Award XP and update level
+    // Step 4: Award XP and update level (track old level for level-up detection)
+    let oldLevel = 1;
     let newLevel = 1;
+
+    // Get current level before XP award
+    const { data: preXPUser } = await supabase
+      .from('users')
+      .select('current_level')
+      .eq('id', userId)
+      .maybeSingle();
+
+    oldLevel = preXPUser?.current_level || 1;
+
     if (xpEarned > 0) {
       try {
         // Try using award_xp function first
@@ -429,12 +444,45 @@ export async function markLessonComplete(
       newLevel = updatedUser?.current_level || newLevel;
     }
 
-    console.log('[markLessonComplete] Success!', { xpEarned, newLevel, courseComplete });
+    // Step 8: Check and award badges
+    console.log('[markLessonComplete] Checking for badge awards...');
+    const badgesEarned = await checkAndAwardBadges(userId);
+
+    if (badgesEarned.length > 0) {
+      console.log(`[markLessonComplete] ✨ Awarded ${badgesEarned.length} badge(s):`, badgesEarned.map(b => b.badgeName));
+
+      // Update level after badge XP (badges can cause level-ups too)
+      const { data: postBadgeUser } = await supabase
+        .from('users')
+        .select('current_level')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (postBadgeUser) {
+        newLevel = postBadgeUser.current_level;
+      }
+    }
+
+    const totalXpEarned = xpEarned + (courseComplete ? 100 : 0);
+    const leveledUp = newLevel > oldLevel;
+
+    console.log('[markLessonComplete] Success!', {
+      xpEarned: totalXpEarned,
+      oldLevel,
+      newLevel,
+      leveledUp,
+      courseComplete,
+      badgesEarned: badgesEarned.length
+    });
+
     return {
       success: true,
-      xpEarned: xpEarned + (courseComplete ? 100 : 0),
+      xpEarned: totalXpEarned,
+      oldLevel,
       newLevel,
+      leveledUp,
       courseComplete,
+      badgesEarned: badgesEarned.length > 0 ? badgesEarned : undefined,
     };
   } catch (error) {
     console.error('Unexpected error marking lesson complete:', error);

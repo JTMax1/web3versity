@@ -8,10 +8,12 @@ import { useCompletedLessons, useCompleteLesson, useCourseProgress, useUpdateCur
 import { useLessons } from '../../hooks/useLessons';
 import { XPNotification } from '../XPNotification';
 import { LevelUpModal } from '../LevelUpModal';
+import { BadgeEarnedModal } from '../BadgeEarnedModal';
 import { CourseCompleteModal } from '../CourseCompleteModal';
 import { useWallet } from '../../contexts/WalletContext';
 import { useCourse } from '../../hooks/useCourses';
 import { adaptCourseForComponent } from '../../lib/adapters/courseAdapter';
+import type { BadgeAwardResult } from '../../lib/api/badge-auto-award';
 
 export function CourseViewer() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -40,10 +42,13 @@ export function CourseViewer() {
 
   // Notification and modal state
   const [xpNotification, setXPNotification] = useState<{ xp: number } | null>(null);
-  const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number }>({
+  const [levelUpModal, setLevelUpModal] = useState<{ show: boolean; level: number; oldLevel: number }>({
     show: false,
-    level: 1
+    level: 1,
+    oldLevel: 1
   });
+  const [badgeQueue, setBadgeQueue] = useState<BadgeAwardResult[]>([]);
+  const [currentBadge, setCurrentBadge] = useState<BadgeAwardResult | null>(null);
   const [showCourseCompleteModal, setShowCourseCompleteModal] = useState(false);
 
   // Sync completed lessons from database
@@ -89,6 +94,16 @@ export function CourseViewer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLessonIndex, user?.id, course?.id, isInitialized]);
+
+  // Badge queue management - show badges one at a time
+  useEffect(() => {
+    if (badgeQueue.length > 0 && !currentBadge) {
+      // Show next badge in queue
+      const [nextBadge, ...remaining] = badgeQueue;
+      setCurrentBadge(nextBadge);
+      setBadgeQueue(remaining);
+    }
+  }, [badgeQueue, currentBadge]);
 
   // Show loading state while fetching lessons
   if (lessonsLoading) {
@@ -200,18 +215,31 @@ export function CourseViewer() {
           setTimeout(() => setXPNotification(null), 3000);
         }
 
+        // Check for badges earned
+        if (result.badgesEarned && result.badgesEarned.length > 0) {
+          console.log('[CourseViewer] Badges earned:', result.badgesEarned);
+          // Queue badges to show one at a time
+          setBadgeQueue(result.badgesEarned);
+        }
+
         // Check for level up
-        if (user.current_level && result.newLevel > user.current_level) {
+        if (result.leveledUp && result.oldLevel && result.newLevel) {
+          console.log('[CourseViewer] Level up detected:', result.oldLevel, '->', result.newLevel);
           setTimeout(() => {
-            setLevelUpModal({ show: true, level: result.newLevel });
-          }, 500);
+            setLevelUpModal({
+              show: true,
+              level: result.newLevel,
+              oldLevel: result.oldLevel
+            });
+          }, result.badgesEarned && result.badgesEarned.length > 0 ? 2000 : 500);
         }
 
         // Check for course complete
         if (result.courseComplete) {
+          const delay = (result.badgesEarned?.length || 0) * 2000 + (result.leveledUp ? 1500 : 500);
           setTimeout(() => {
             setShowCourseCompleteModal(true);
-          }, 1000);
+          }, delay);
         }
 
         console.log('[CourseViewer] Progress saved successfully');
@@ -450,6 +478,7 @@ export function CourseViewer() {
                 onComplete={handleLessonComplete}
                 isCompleted={completedLessons.has(currentLesson.id)}
                 isCompleting={isCompleting}
+                courseId={courseId}
               />
             )}
           </div>
@@ -461,6 +490,17 @@ export function CourseViewer() {
         <XPNotification
           xp={xpNotification.xp}
           onClose={() => setXPNotification(null)}
+        />
+      )}
+
+      {/* Badge Earned Modal */}
+      {currentBadge && (
+        <BadgeEarnedModal
+          isOpen={true}
+          onClose={() => setCurrentBadge(null)}
+          badge={currentBadge}
+          badgeIcon={currentBadge.badgeIcon || '🏆'}
+          badgeRarity={currentBadge.badgeRarity || 'common'}
         />
       )}
 
