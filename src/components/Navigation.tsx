@@ -5,6 +5,7 @@ import { useWallet } from '../contexts/WalletContext';
 import { toast } from 'sonner';
 import { useUserStats } from '../hooks/useStats';
 import { Menu, X } from 'lucide-react';
+import { ProfileDropdown } from './profile/ProfileDropdown';
 
 // ===== Helpers =====
 const formatEvmAddress = (address: string) => {
@@ -154,39 +155,7 @@ export function Navigation() {
           {/* User Actions */}
           <div className="flex items-center gap-2 md:gap-3">
             {connected ? (
-              <>
-                <Link
-                  to="/profile"
-                  className="flex items-center gap-2 md:gap-3 bg-white/95 hover:bg-white rounded-full px-2 md:px-4 py-2 shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)] hover:scale-105 hover:shadow-[0_6px_20px_rgba(0,132,199,0.4)] transition-all group"
-                  title="View Profile"
-                >
-                  <div className="relative">
-                    <span className="text-xl md:text-2xl">{stats?.avatarEmoji || '👤'}</span>
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                  </div>
-                  <div className="hidden lg:flex flex-col items-start">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white text-sm font-semibold drop-shadow-sm">
-                        {stats?.username || formatEvmAddress(account || '')}
-                      </span>
-                      <span className="text-white text-xs bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full font-medium border border-white/30">
-                        {formatBalance(balance)} ℏ
-                      </span>
-                    </div>
-                    {accountId && (
-                      <span className="text-white/80 text-xs font-mono drop-shadow-sm">
-                        {formatAccountId(accountId)}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-                <Button
-                  onClick={handleDisconnect}
-                  className="hidden md:flex bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm rounded-full px-4 md:px-6 shadow-[0_4px_16px_rgba(0,0,0,0.1)] text-sm md:text-base"
-                >
-                  Disconnect
-                </Button>
-              </>
+              <ProfileDropdown />
             ) : (
               <Button
                 onClick={handleConnect}

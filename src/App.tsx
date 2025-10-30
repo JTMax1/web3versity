@@ -14,6 +14,7 @@ import VerifyCertificate from './components/pages/VerifyCertificate';
 import { AIGenerator } from './components/pages/AIGenerator';
 import { CreateCoursePage } from './components/pages/CreateCoursePage';
 import { AdminReviewDashboard } from './components/admin/AdminReviewDashboard';
+import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { mockDiscussions } from './lib/mockData';
 import { Toaster } from './components/ui/sonner';
@@ -98,6 +99,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <AdminReviewDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
             </ProtectedRoute>
           }
         />
