@@ -25,8 +25,13 @@ import { BlockChainBuilder } from '../interactive/BlockChainBuilder';
 import { TransactionSimulator } from '../interactive/TransactionSimulator';
 import { CentralizedVsDecentralized } from '../interactive/CentralizedVsDecentralized';
 import { BeginnerScamOrLegit } from '../interactive/BeginnerScamOrLegit';
+import { TaxCalculator } from '../interactive/TaxCalculator';
+import { CareerExplorer } from '../interactive/CareerExplorer';
+import { PlayToEarnGame } from '../interactive/PlayToEarnGame';
+import { PriceChartAnalyzer } from '../interactive/PriceChartAnalyzer';
+import { HederaCouncilTimeline } from '../interactive/HederaCouncilTimeline';
 
-interface InteractiveLessonProps {
+interface InteractiveLessonProps{
   content: any;
   onComplete: (score?: number) => void;
   isCompleted?: boolean;
@@ -88,13 +93,22 @@ export function InteractiveLesson({ content, onComplete, isCompleted = false, is
       case 'beginner_scam_or_legit':
         return <BeginnerScamOrLegit onInteract={() => setHasInteracted(true)} />;
 
-      // Missing interactive types that fall back to auto-complete placeholders
+      // Fully implemented interactive components
       case 'tax_calculator':
+        return <TaxCalculator onInteract={() => setHasInteracted(true)} />;
       case 'career_explorer':
+        return <CareerExplorer onInteract={() => setHasInteracted(true)} />;
       case 'play_to_earn_demo':
+        return <PlayToEarnGame onInteract={() => setHasInteracted(true)} />;
       case 'chart_analysis':
-      case 'exchange_demo':
+      case 'price_chart_analyzer':
+        return <PriceChartAnalyzer onInteract={() => setHasInteracted(true)} />;
       case 'council_timeline':
+      case 'hedera_council_timeline':
+        return <HederaCouncilTimeline onInteract={() => setHasInteracted(true)} />;
+
+      // Missing interactive types that fall back to auto-complete placeholders
+      case 'exchange_demo':
       case 'layer_comparison':
         // These types are used in migrations but don't have dedicated components yet
         // Auto-completing after 2 seconds to allow lesson progression

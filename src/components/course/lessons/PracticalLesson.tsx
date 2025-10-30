@@ -13,6 +13,9 @@ import { Alert, AlertDescription } from '../../ui/alert';
 import { TransactionSender } from '../practical/TransactionSender';
 import { DeFiSimulator } from '../practical/DeFiSimulator';
 import { DEXSwapper } from '../practical/DEXSwapper';
+import { HCSMessageBoard } from '../practical/HCSMessageBoard';
+import { NFTMinterStudio } from '../practical/NFTMinterStudio';
+import { SmartContractPlayground } from '../practical/SmartContractPlayground';
 import { toast } from 'sonner';
 
 interface PracticalLessonProps {
@@ -24,7 +27,17 @@ interface PracticalLessonProps {
     transactionAmount?: number;
     successMessage: string;
     tips: string[];
-    interactiveType?: 'transaction' | 'defi' | 'dex' | 'staking' | 'security' | 'charts';
+    interactiveType?:
+      | 'transaction'
+      | 'dex_swap'
+      | 'hcs_message'
+      | 'nft_minting'
+      | 'wallet_creation'
+      | 'wallet_investigation'
+      | 'explorer_navigation'
+      | 'transaction_detective'
+      | 'defi' // Legacy - maps to DeFiSimulator
+      | 'contract'; // Future use - Smart Contract Playground
     defaultRecipient?: string;
     defaultAmount?: number;
     defaultMemo?: string;
@@ -104,7 +117,7 @@ export function PracticalLesson({
           />
         );
 
-      case 'dex':
+      case 'dex_swap':
         return (
           <DEXSwapper
             onSuccess={handleTransactionSuccess}
@@ -112,11 +125,69 @@ export function PracticalLesson({
           />
         );
 
-      case 'charts':
-        // TODO: Implement PriceChart component in Task 3.10
+      case 'hcs_message':
+        return (
+          <HCSMessageBoard
+            onInteract={() => {
+              // When user interacts with HCS, mark as completed
+              handleTransactionSuccess();
+            }}
+          />
+        );
+
+      case 'nft_minting':
+        return (
+          <NFTMinterStudio
+            onInteract={() => {
+              // When user mints NFT, mark as completed
+              handleTransactionSuccess();
+            }}
+          />
+        );
+
+      case 'contract':
+        return (
+          <SmartContractPlayground
+            onInteract={() => {
+              // When user deploys contract, mark as completed
+              handleTransactionSuccess();
+            }}
+          />
+        );
+
+      case 'wallet_creation':
+        // TODO: Create WalletCreator component for wallet_creation lessons
         return (
           <div className="text-center py-12 bg-gray-50 rounded-2xl">
-            <p className="text-gray-600">Price Charts coming soon...</p>
+            <p className="text-gray-600">Wallet Creation component coming soon...</p>
+            <p className="text-sm text-gray-500 mt-2">interactiveType: wallet_creation</p>
+          </div>
+        );
+
+      case 'wallet_investigation':
+        // TODO: Create WalletInvestigation component for wallet_investigation lessons
+        return (
+          <div className="text-center py-12 bg-gray-50 rounded-2xl">
+            <p className="text-gray-600">Wallet Investigation component coming soon...</p>
+            <p className="text-sm text-gray-500 mt-2">interactiveType: wallet_investigation</p>
+          </div>
+        );
+
+      case 'explorer_navigation':
+        // TODO: Create ExplorerNavigation component for explorer_navigation lessons
+        return (
+          <div className="text-center py-12 bg-gray-50 rounded-2xl">
+            <p className="text-gray-600">Explorer Navigation component coming soon...</p>
+            <p className="text-sm text-gray-500 mt-2">interactiveType: explorer_navigation</p>
+          </div>
+        );
+
+      case 'transaction_detective':
+        // TODO: Create TransactionDetective component for transaction_detective lessons
+        return (
+          <div className="text-center py-12 bg-gray-50 rounded-2xl">
+            <p className="text-gray-600">Transaction Detective component coming soon...</p>
+            <p className="text-sm text-gray-500 mt-2">interactiveType: transaction_detective</p>
           </div>
         );
 
