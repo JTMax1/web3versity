@@ -29,11 +29,23 @@ export function PublishRequestsSubTab() {
       const adminUserId = user.user_metadata?.user_id;
       if (!adminUserId) throw new Error('Admin user ID not found');
 
-      // Call approve_and_publish_course RPC function
-      // Note: Using named parameters to ensure correct order
-      const { data, error } = await supabase.rpc('approve_and_publish_course', {
+      // Get draft_id - the RPC function returns it as 'draft_id'
+      const draftId = selectedCourse.draft_id || selectedCourse.id;
+      if (!draftId) {
+        throw new Error('Draft ID not found');
+      }
+
+      console.log('Calling approve_and_publish_course with:', {
+        p_draft_id: draftId,
         p_admin_id: adminUserId,
-        p_draft_id: selectedCourse.draft_id,
+        p_review_notes: notes
+      });
+
+      // Call approve_and_publish_course RPC function
+      // Function signature: (p_draft_id TEXT, p_admin_id UUID, p_review_notes TEXT)
+      const { data, error } = await supabase.rpc('approve_and_publish_course', {
+        p_draft_id: draftId,
+        p_admin_id: adminUserId,
         p_review_notes: notes || null,
       });
 
@@ -71,11 +83,17 @@ export function PublishRequestsSubTab() {
       const adminUserId = user.user_metadata?.user_id;
       if (!adminUserId) throw new Error('Admin user ID not found');
 
+      // Get draft_id - the RPC function returns it as 'draft_id'
+      const draftId = selectedCourse.draft_id || selectedCourse.id;
+      if (!draftId) {
+        throw new Error('Draft ID not found');
+      }
+
       // Call reject_course_draft RPC function
-      // Note: Using named parameters to ensure correct order
+      // Function signature: (p_draft_id TEXT, p_admin_id UUID, p_review_notes TEXT)
       const { data, error } = await supabase.rpc('reject_course_draft', {
+        p_draft_id: draftId,
         p_admin_id: adminUserId,
-        p_draft_id: selectedCourse.draft_id,
         p_review_notes: notes,
       });
 
@@ -105,9 +123,9 @@ export function PublishRequestsSubTab() {
       ) : pendingCourses && pendingCourses.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {pendingCourses.map((course: any) => (
-            <div key={course.id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div key={course.draft_id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
               <div className="text-4xl mb-3">{course.learning_objectives?.[0]?.emoji || '📚'}</div>
-              <h3 className="font-semibold text-gray-900 mb-2">{course.title}</h3>
+              <h3 className="font-semibold text-gray-900 mb-2">{course.course_title}</h3>
               <p className="text-sm text-gray-600 mb-4 line-clamp-2">{course.description}</p>
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs text-gray-500">By {course.creator_username}</span>
