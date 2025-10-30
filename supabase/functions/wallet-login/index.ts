@@ -158,6 +158,14 @@ serve(async (req) => {
       )
     }
 
+    // Check if this wallet should be auto-admin (matches HEDERA_OPERATOR_ID from environment)
+    const operatorId = Deno.env.get('VITE_HEDERA_OPERATOR_ID')
+    const shouldBeAdmin = operatorId && hederaAccountId && hederaAccountId.toLowerCase() === operatorId.toLowerCase()
+
+    if (shouldBeAdmin) {
+      console.log('👑 Auto-admin detected: wallet matches VITE_HEDERA_OPERATOR_ID')
+    }
+
     let userId: string
 
     // 6. Create or update user
@@ -166,13 +174,22 @@ serve(async (req) => {
       console.log('  👤 Username:', existingUser.username)
       console.log('  🕐 Last login:', existingUser.last_login_at)
 
-      // Update last login
+      // Prepare update data
+      const updateData: any = {
+        last_login_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+
+      // Auto-grant admin if this is the operator wallet
+      if (shouldBeAdmin && !existingUser.is_admin) {
+        updateData.is_admin = true
+        console.log('  👑 Granting admin privileges to operator wallet')
+      }
+
+      // Update last login and admin status if needed
       const { error: updateError } = await supabaseAdmin
         .from('users')
-        .update({
-          last_login_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', existingUser.id)
 
       if (updateError) {
@@ -219,6 +236,11 @@ serve(async (req) => {
         is_verified: false,
         profile_public: true,
         show_on_leaderboard: true,
+        is_admin: shouldBeAdmin, // Auto-grant admin to operator wallet
+      }
+
+      if (shouldBeAdmin) {
+        console.log('  👑 New user created with admin privileges (operator wallet)')
       }
 
       const { data: newUser, error: insertError } = await supabaseAdmin
