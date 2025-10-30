@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, BookOpen, Clock, User, Calendar, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { Button } from '../ui/button';
 
 interface CourseReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   course: any;
-  onApprove: () => Promise<void>;
-  onReject: () => Promise<void>;
+  onApprove: (notes: string) => Promise<void>;
+  onReject: (notes: string) => Promise<void>;
   isProcessing: boolean;
 }
 
@@ -29,7 +28,7 @@ export const CourseReviewModal: React.FC<CourseReviewModalProps> = ({
   };
 
   const handleApprove = async () => {
-    await onApprove();
+    await onApprove(reviewNotes);
     setReviewNotes('');
   };
 
@@ -38,7 +37,7 @@ export const CourseReviewModal: React.FC<CourseReviewModalProps> = ({
       alert('Please provide feedback for the rejection');
       return;
     }
-    await onReject();
+    await onReject(reviewNotes);
     setReviewNotes('');
   };
 
@@ -240,22 +239,25 @@ export const CourseReviewModal: React.FC<CourseReviewModalProps> = ({
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 pt-4">
-                    <Button
+                    {/* Approve Button - Using plain button for custom green styling */}
+                    <button
                       onClick={handleApprove}
                       disabled={isProcessing}
-                      className="flex-1 bg-green-600 hover:bg-green-700 text-white py-6 text-lg rounded-xl"
+                      className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-6 text-lg font-semibold rounded-xl transition-colors shadow-lg hover:shadow-xl"
                     >
-                      <CheckCircle className="w-5 h-5 mr-2" />
-                      Approve & Publish
-                    </Button>
-                    <Button
+                      <CheckCircle className="w-5 h-5" />
+                      {isProcessing ? 'Processing...' : 'Approve & Publish'}
+                    </button>
+
+                    {/* Reject Button - Using plain button for custom red styling */}
+                    <button
                       onClick={handleReject}
                       disabled={isProcessing}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-6 text-lg rounded-xl"
+                      className="flex-1 flex items-center justify-center gap-2 bg-red-500 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-6 text-lg font-semibold rounded-xl transition-colors shadow-lg hover:shadow-xl"
                     >
-                      <XCircle className="w-5 h-5 mr-2" />
-                      Reject
-                    </Button>
+                      <XCircle className="w-5 h-5" />
+                      {isProcessing ? 'Processing...' : 'Reject'}
+                    </button>
                   </div>
 
                   {/* Warning */}

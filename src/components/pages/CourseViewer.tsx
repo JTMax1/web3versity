@@ -138,10 +138,10 @@ export function CourseViewer() {
               This course is currently being developed. Check back soon to start learning!
             </p>
             <Button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(-1)}
               className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] rounded-full px-8 py-4 shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]"
             >
-              Back to Courses
+              Back
             </Button>
           </div>
         </div>
@@ -324,11 +324,11 @@ export function CourseViewer() {
         {/* Header */}
         <div className="mb-8">
           <Button
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(-1)}
             className="mb-4 bg-white text-[#0084C7] hover:bg-gray-50 rounded-full px-6 shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)]"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Courses
+            Back
           </Button>
 
           <div className="bg-white rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
@@ -466,10 +466,10 @@ export function CourseViewer() {
                   </div>
                 </div>
                 <Button
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate(-1)}
                   className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] rounded-full px-10 py-4 shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]"
                 >
-                  Back to Courses
+                  Back
                 </Button>
               </div>
             ) : (

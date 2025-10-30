@@ -80,39 +80,36 @@ export function CourseMetadataStep() {
           Course Emoji *
         </label>
         <p className="text-sm text-gray-500 mb-4">
-          Choose a single emoji to represent your course
+          Type or paste a single emoji to represent your course
         </p>
-        <div className="grid grid-cols-8 md:grid-cols-12 gap-2">
-          {[
-            '📚', '📖', '📝', '📘', '📙', '📕',
-            '💻', '⌨️', '🖥️', '💡', '🧠', '🎓',
-            '🚀', '⚡', '🔥', '✨', '🌟', '💫',
-            '🎯', '🎪', '🎨', '🎭', '🎬', '🎮',
-            '🔒', '🔑', '🛡️', '⚙️', '🔧', '🔨',
-            '🌐', '🌍', '🌎', '🌏', '🗺️', '🧭',
-            '💰', '💸', '💳', '💵', '🪙', '📊',
-            '🤝', '👥', '👤', '🙋', '🙌', '👏',
-          ].map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => updateMetadata({ thumbnailEmoji: emoji })}
-              className={`text-3xl p-3 rounded-xl border-2 transition-all hover:scale-110 ${
-                draft.thumbnailEmoji === emoji
-                  ? 'border-[#0084C7] bg-blue-50 shadow-[0_4px_16px_rgba(0,132,199,0.2)]'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              title={emoji}
-            >
-              {emoji}
-            </button>
-          ))}
-        </div>
-        <div className="mt-4 p-4 bg-gray-50 rounded-xl flex items-center gap-3">
-          <span className="text-4xl">{draft.thumbnailEmoji}</span>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Selected Emoji</p>
-            <p className="text-xs text-gray-600">This will appear on your course card</p>
+
+        {/* Custom Emoji Input */}
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            value={draft.thumbnailEmoji}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Only allow single emoji or empty
+              const emojiRegex = /^[\p{Emoji}\p{Emoji_Component}]$/u;
+              if (value === '' || emojiRegex.test(value)) {
+                updateMetadata({ thumbnailEmoji: value });
+              }
+            }}
+            maxLength={2}
+            placeholder="📚"
+            className="w-24 h-24 text-5xl text-center rounded-2xl border-2 border-[#0084C7] bg-gradient-to-br from-blue-50 to-cyan-50 focus:border-[#0084C7] focus:outline-none focus:ring-4 focus:ring-[#0084C7]/20 transition-all shadow-[0_4px_16px_rgba(0,132,199,0.15)] hover:shadow-[0_6px_24px_rgba(0,132,199,0.25)]"
+          />
+          <div className="flex-1 space-y-2">
+            <p className="text-sm font-semibold text-gray-900">
+              {draft.thumbnailEmoji ? '✓ Emoji Selected' : 'Enter an Emoji'}
+            </p>
+            <p className="text-xs text-gray-600">
+              Examples: 📚 💻 🚀 🎓 💡 🔒 🌍 💰
+            </p>
+            <p className="text-xs text-gray-500">
+              Tip: Use your device's emoji picker (Windows: Win + . | Mac: Cmd + Ctrl + Space)
+            </p>
           </div>
         </div>
       </div>

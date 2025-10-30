@@ -75,90 +75,89 @@ export function CourseFilters({ filters, onFilterChange, onClearFilters }: Cours
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+    <div className="bg-white rounded-3xl p-4 lg:p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
+      {/* Single Line Layout - Wraps responsively */}
+      <div className="flex flex-wrap items-center gap-3 lg:gap-4">
+        {/* Filters Label with Badge */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <h3 className="text-sm lg:text-base font-semibold text-gray-900">Filters</h3>
           {activeFilterCount > 0 && (
-            <span className="px-3 py-1 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white text-sm rounded-full shadow-[0_4px_12px_rgba(0,132,199,0.3)]">
+            <span className="px-2 py-0.5 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white text-xs rounded-full shadow-[0_2px_8px_rgba(0,132,199,0.3)]">
               {activeFilterCount}
             </span>
           )}
         </div>
-        {activeFilterCount > 0 && (
-          <button
-            onClick={onClearFilters}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-          >
-            <X className="w-4 h-4" />
-            Clear All
-          </button>
-        )}
-      </div>
 
-      {/* Track Filter */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">Track</label>
-        <div className="flex flex-wrap gap-2">
+        {/* Vertical Divider */}
+        <div className="hidden lg:block h-8 w-px bg-gray-200"></div>
+
+        {/* Track Filters */}
+        <div className="flex flex-wrap items-center gap-2">
           <FilterButton
-            label="All Tracks"
+            label="All"
             active={filters.track === 'all'}
             onClick={() => handleTrackChange('all')}
+            compact
           />
           <FilterButton
             label="Explorer"
             active={filters.track === 'explorer'}
             onClick={() => handleTrackChange('explorer')}
             color="green"
+            compact
           />
           <FilterButton
             label="Developer"
             active={filters.track === 'developer'}
             onClick={() => handleTrackChange('developer')}
             color="purple"
+            compact
           />
         </div>
-      </div>
 
-      {/* Difficulty Filter */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">Difficulty</label>
-        <div className="flex flex-wrap gap-2">
+        {/* Vertical Divider */}
+        <div className="hidden lg:block h-8 w-px bg-gray-200"></div>
+
+        {/* Difficulty Filters */}
+        <div className="flex flex-wrap items-center gap-2">
           <FilterButton
             label="All Levels"
             active={filters.difficulty === 'all'}
             onClick={() => handleDifficultyChange('all')}
+            compact
           />
           <FilterButton
             label="Beginner"
             active={filters.difficulty === 'beginner'}
             onClick={() => handleDifficultyChange('beginner')}
             color="green"
+            compact
           />
           <FilterButton
             label="Intermediate"
             active={filters.difficulty === 'intermediate'}
             onClick={() => handleDifficultyChange('intermediate')}
             color="orange"
+            compact
           />
           <FilterButton
             label="Advanced"
             active={filters.difficulty === 'advanced'}
             onClick={() => handleDifficultyChange('advanced')}
             color="red"
+            compact
           />
         </div>
-      </div>
 
-      {/* Category Filter */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">Category</label>
+        {/* Vertical Divider */}
+        <div className="hidden lg:block h-8 w-px bg-gray-200"></div>
+
+        {/* Category Dropdown */}
         <select
           value={filters.category}
           onChange={(e) => handleCategoryChange(e.target.value)}
           disabled={categoriesLoading}
-          className="w-full px-4 py-3 bg-gray-50 rounded-2xl border-0 shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)] focus:shadow-[inset_0_2px_8px_rgba(0,132,199,0.15)] focus:outline-none focus:ring-2 focus:ring-[#0084C7]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-2 lg:px-4 lg:py-2 bg-gray-50 rounded-full border-0 text-sm shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] focus:shadow-[inset_0_2px_4px_rgba(0,132,199,0.15)] focus:outline-none focus:ring-2 focus:ring-[#0084C7]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
         >
           <option value="">All Categories</option>
           {categories.map((category) => (
@@ -167,45 +166,61 @@ export function CourseFilters({ filters, onFilterChange, onClearFilters }: Cours
             </option>
           ))}
         </select>
-      </div>
 
-      {/* Sort Filter */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Sort By</label>
-        <div className="flex flex-wrap gap-2">
+        {/* Vertical Divider */}
+        <div className="hidden lg:block h-8 w-px bg-gray-200"></div>
+
+        {/* Sort Filters */}
+        <div className="flex flex-wrap items-center gap-2">
           <FilterButton
-            label="Most Popular"
+            label="Popular"
             active={filters.sortBy === 'enrollment_count'}
             onClick={() => handleSortChange('enrollment_count')}
             color="blue"
+            compact
           />
           <FilterButton
-            label="Highest Rated"
+            label="Rated"
             active={filters.sortBy === 'average_rating'}
             onClick={() => handleSortChange('average_rating')}
             color="blue"
+            compact
           />
           <FilterButton
             label="Newest"
             active={filters.sortBy === 'created_at'}
             onClick={() => handleSortChange('created_at')}
             color="blue"
+            compact
           />
-
-          {/* ✅ Updated label: flips A-Z / Z-A */}
           <FilterButton
             label={
               filters.sortBy === 'title'
                 ? filters.sortOrder === 'asc'
-                  ? 'Title (A-Z)'
-                  : 'Title (Z-A)'
-                : 'Title (A-Z)'
+                  ? 'A-Z'
+                  : 'Z-A'
+                : 'A-Z'
             }
             active={filters.sortBy === 'title'}
             onClick={() => handleSortChange('title')}
             color="blue"
+            compact
           />
         </div>
+
+        {/* Clear All Button - Pushes to end on larger screens */}
+        {activeFilterCount > 0 && (
+          <>
+            <div className="hidden lg:block flex-1"></div>
+            <button
+              onClick={onClearFilters}
+              className="flex items-center gap-1.5 px-3 py-2 lg:px-4 lg:py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-full transition-all"
+            >
+              <X className="w-4 h-4" />
+              <span className="hidden sm:inline">Clear All</span>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -221,9 +236,10 @@ interface FilterButtonProps {
   active: boolean;
   onClick: () => void;
   color?: 'blue' | 'green' | 'purple' | 'orange' | 'red';
+  compact?: boolean;
 }
 
-function FilterButton({ label, active, onClick, color = 'blue' }: FilterButtonProps) {
+function FilterButton({ label, active, onClick, color = 'blue', compact = false }: FilterButtonProps) {
   const colorClasses = {
     blue: 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8]',
     green: 'bg-gradient-to-r from-green-500 to-emerald-500',
@@ -232,12 +248,16 @@ function FilterButton({ label, active, onClick, color = 'blue' }: FilterButtonPr
     red: 'bg-gradient-to-r from-red-500 to-rose-500',
   };
 
+  const sizeClasses = compact
+    ? 'px-3 py-2 text-xs lg:text-sm'
+    : 'px-4 py-2 text-sm';
+
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+      className={`${sizeClasses} rounded-full font-medium transition-all whitespace-nowrap ${
         active
-          ? `${colorClasses[color]} text-white shadow-[0_4px_16px_rgba(0,0,0,0.15),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]`
+          ? `${colorClasses[color]} text-white shadow-[0_4px_12px_rgba(0,0,0,0.15),inset_-2px_-2px_6px_rgba(0,0,0,0.1),inset_2px_2px_6px_rgba(255,255,255,0.2)]`
           : 'bg-gray-100 text-gray-700 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] hover:bg-gray-200'
       }`}
     >

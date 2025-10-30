@@ -77,9 +77,9 @@ export function ComponentGallery({ onSelect, onClose }: ComponentGalleryProps) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
+      <div className="bg-white rounded-3xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-900">Component Gallery</h2>
             <button
@@ -173,7 +173,7 @@ export function ComponentGallery({ onSelect, onClose }: ComponentGalleryProps) {
         </div>
 
         {/* Components Grid */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-280px)]">
+        <div className="p-6 overflow-y-auto flex-1">
           {filteredComponents.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-2xl">
               <p className="text-gray-600 mb-2">No components found</p>

@@ -151,8 +151,12 @@ export function LessonsStep() {
           <button
             key={lessonType.type}
             onClick={() => handleAddLesson(lessonType.type)}
-            className="p-6 rounded-2xl border-2 border-dashed border-gray-300 hover:border-[#0084C7] hover:bg-blue-50 transition-all text-center group"
+            className="relative p-6 rounded-2xl border-2 border-gray-200 hover:border-[#0084C7] hover:bg-blue-50 hover:shadow-lg transition-all text-center group bg-white"
           >
+            {/* Green Plus Icon */}
+            <div className="absolute top-3 right-3 w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+              <Plus className="w-5 h-5 text-white" />
+            </div>
             <div className="text-4xl mb-2">{lessonType.emoji}</div>
             <h3 className="font-bold text-gray-900 mb-1">{lessonType.label}</h3>
             <p className="text-xs text-gray-600">{lessonType.description}</p>

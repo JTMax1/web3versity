@@ -209,9 +209,10 @@ export async function getUserStats(userId: string): Promise<UserStats> {
     // Get leaderboard position
     const leaderboardPos = await getLeaderboardPosition(userId);
 
-    // Calculate XP progress
-    const xpToNextLevel = getXpToNextLevel(user.total_xp, user.current_level);
-    const levelProgress = getLevelProgress(user.total_xp, user.current_level);
+    // Calculate XP progress - use calculated level from XP, not database value
+    const actualLevel = getLevelFromXp(user.total_xp);
+    const xpToNextLevel = getXpToNextLevel(user.total_xp, actualLevel);
+    const levelProgress = getLevelProgress(user.total_xp, actualLevel);
 
     return {
       userId: user.id,
@@ -220,7 +221,7 @@ export async function getUserStats(userId: string): Promise<UserStats> {
       isEducator: user.is_educator || false,
 
       totalXp: user.total_xp,
-      currentLevel: user.current_level,
+      currentLevel: actualLevel,
       xpToNextLevel,
       levelProgress,
 

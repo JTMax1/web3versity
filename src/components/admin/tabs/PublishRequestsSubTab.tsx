@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase/client';
 import { CourseReviewModal } from '../../modals/CourseReviewModal';
+import { toast } from 'sonner';
 
 export function PublishRequestsSubTab() {
   const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const { data: pendingCourses, isLoading, refetch } = useQuery({
     queryKey: ['admin', 'pending-courses'],
@@ -14,6 +16,85 @@ export function PublishRequestsSubTab() {
       return data;
     },
   });
+
+  const handleApprove = async (notes: string) => {
+    if (!selectedCourse) return;
+
+    setIsProcessing(true);
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const adminUserId = user.user_metadata?.user_id;
+      if (!adminUserId) throw new Error('Admin user ID not found');
+
+      // Call approve_and_publish_course RPC function
+      // Note: Using named parameters to ensure correct order
+      const { data, error } = await supabase.rpc('approve_and_publish_course', {
+        p_admin_id: adminUserId,
+        p_draft_id: selectedCourse.draft_id,
+        p_review_notes: notes || null,
+      });
+
+      if (error) throw error;
+
+      if (data && !data.success) {
+        throw new Error(data.error || 'Failed to approve course');
+      }
+
+      toast.success('Course approved and published successfully! 🎉');
+      setSelectedCourse(null);
+      refetch();
+    } catch (error: any) {
+      console.error('Error approving course:', error);
+      toast.error(error.message || 'Failed to approve course');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async (notes: string) => {
+    if (!selectedCourse) return;
+
+    if (!notes.trim()) {
+      toast.error('Please provide feedback for the rejection');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const adminUserId = user.user_metadata?.user_id;
+      if (!adminUserId) throw new Error('Admin user ID not found');
+
+      // Call reject_course_draft RPC function
+      // Note: Using named parameters to ensure correct order
+      const { data, error } = await supabase.rpc('reject_course_draft', {
+        p_admin_id: adminUserId,
+        p_draft_id: selectedCourse.draft_id,
+        p_review_notes: notes,
+      });
+
+      if (error) throw error;
+
+      if (data && !data.success) {
+        throw new Error(data.error || 'Failed to reject course');
+      }
+
+      toast.success('Course rejected with feedback sent to creator');
+      setSelectedCourse(null);
+      refetch();
+    } catch (error: any) {
+      console.error('Error rejecting course:', error);
+      toast.error(error.message || 'Failed to reject course');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -54,11 +135,11 @@ export function PublishRequestsSubTab() {
       {selectedCourse && (
         <CourseReviewModal
           isOpen={!!selectedCourse}
-          onClose={() => {
-            setSelectedCourse(null);
-            refetch();
-          }}
-          courseData={selectedCourse}
+          onClose={() => setSelectedCourse(null)}
+          course={selectedCourse}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          isProcessing={isProcessing}
         />
       )}
     </div>

@@ -136,6 +136,7 @@ interface CourseCreationState {
 
   // Submission
   submitForReview: () => Promise<boolean>;
+  publishDirect: () => Promise<boolean>;
 
   // Validation
   validateStep: (step: number) => ValidationError[];
@@ -467,6 +468,7 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             estimatedHours: courseData.estimated_hours || 1,
             thumbnailEmoji: courseData.thumbnail_emoji || '📚',
             imageUrl: courseData.image_url,
+            isComingSoon: courseData.is_coming_soon || false,
             learningObjectives: courseData.learning_objectives || [],
             lessons: courseData.lessons || [],
             creatorId: data.creator_id,
@@ -475,12 +477,18 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             updatedAt: data.updated_at,
           };
 
+          // Calculate max completed step based on draft content
+          let maxStep = 1; // Always at least metadata step
+          if (loadedDraft.learningObjectives.length >= 4) maxStep = 2;
+          if (loadedDraft.lessons.length > 0) maxStep = 3;
+          if (loadedDraft.lessons.length >= 5) maxStep = 4; // Preview step available
+
           set({
             draft: loadedDraft,
             isDirty: false,
             lastSaved: new Date(data.updated_at),
             currentStep: 1,
-            maxCompletedStep: 0,
+            maxCompletedStep: maxStep,
           });
 
           toast.success('Draft loaded successfully');
@@ -556,6 +564,70 @@ export const useCourseCreationStore = create<CourseCreationState>()(
         } catch (error) {
           console.error('Error submitting course:', error);
           toast.error('Failed to submit course for review');
+          return false;
+        } finally {
+          set({ isSubmitting: false });
+        }
+      },
+
+      publishDirect: async () => {
+        const { draft, validateAll } = get();
+
+        // Validate entire course
+        const errors = validateAll();
+        const hasErrors = errors.some(e => e.severity === 'error');
+
+        if (hasErrors) {
+          set({ validationErrors: errors });
+          toast.error('Please fix all errors before publishing');
+          return false;
+        }
+
+        set({ isSubmitting: true });
+
+        try {
+          if (!draft.id) {
+            toast.error('Please save your draft before publishing');
+            return false;
+          }
+
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            toast.error('You must be logged in to publish courses');
+            return false;
+          }
+
+          // Get database user ID from JWT metadata
+          const dbUserId = user.user_metadata?.user_id;
+          if (!dbUserId) {
+            toast.error('User not properly registered');
+            return false;
+          }
+
+          // Check if user is admin
+          if (!user.user_metadata?.is_admin) {
+            toast.error('Only admins can directly publish courses');
+            return false;
+          }
+
+          // Call publish_draft_directly RPC function (admin only)
+          const { error } = await supabase.rpc('publish_draft_directly', {
+            p_draft_id: draft.id,
+            p_creator_id: dbUserId,
+          });
+
+          if (error) throw error;
+
+          set((state) => ({
+            draft: { ...state.draft, draftStatus: 'published' },
+            isDirty: false,
+          }));
+
+          toast.success('Course published successfully! 🎉');
+          return true;
+        } catch (error) {
+          console.error('Error publishing course:', error);
+          toast.error('Failed to publish course directly');
           return false;
         } finally {
           set({ isSubmitting: false });

@@ -319,7 +319,7 @@ export function CourseCompleteModal({
               onClick={onClose}
               className="w-full py-3 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white rounded-xl font-semibold hover:shadow-lg transition-all"
             >
-              Continue Learning
+              Continue Reviewing
             </button>
           </div>
         </div>

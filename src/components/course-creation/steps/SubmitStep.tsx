@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 export function SubmitStep() {
   const navigate = useNavigate();
   const { user } = useWallet();
-  const { draft, isSubmitting, validateAll, submitForReview, saveDraft } = useCourseCreationStore();
+  const { draft, isSubmitting, validateAll, submitForReview, publishDirect, saveDraft } = useCourseCreationStore();
   const [agreed, setAgreed] = useState(false);
   const [publishMode, setPublishMode] = useState<'review' | 'direct'>('review');
 
@@ -31,8 +31,16 @@ export function SubmitStep() {
       return;
     }
 
-    // Submit for review
-    const success = await submitForReview();
+    // Choose action based on publish mode
+    let success = false;
+    if (isAdmin && publishMode === 'direct') {
+      // Admin direct publish
+      success = await publishDirect();
+    } else {
+      // Standard review submission
+      success = await submitForReview();
+    }
+
     if (success) {
       // Navigate to dashboard or my courses page
       setTimeout(() => {
@@ -113,47 +121,101 @@ export function SubmitStep() {
 
       {/* Admin Publish Mode Selector */}
       {isAdmin && (
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">👑 Admin Publishing Options</h3>
-          <p className="text-sm text-gray-700 mb-4">
-            As an admin, you can choose to publish this course immediately or submit it for standard review.
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border-2 border-purple-200">
+          <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+            👑 Admin Publishing Options
+          </h3>
+          <p className="text-sm text-gray-700 mb-6">
+            Choose how you want to publish this course. Your selection is highlighted below.
           </p>
 
           <div className="grid grid-cols-2 gap-4">
+            {/* Publish Now - Green when selected */}
             <button
               type="button"
               onClick={() => setPublishMode('direct')}
-              className={`p-4 rounded-xl border-2 transition-all text-left ${
+              className={`relative p-5 rounded-2xl border-3 transition-all text-left group ${
                 publishMode === 'direct'
-                  ? 'border-purple-600 bg-purple-50 shadow-[0_4px_16px_rgba(147,51,234,0.2)]'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 shadow-[0_8px_24px_rgba(34,197,94,0.3)] scale-105'
+                  : 'border-gray-300 bg-white hover:border-gray-400 hover:shadow-md'
               }`}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-purple-600" />
-                <h4 className="font-bold text-gray-900">Publish Now</h4>
+              {/* Radio indicator */}
+              <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                publishMode === 'direct'
+                  ? 'border-green-600 bg-green-600'
+                  : 'border-gray-300 bg-white group-hover:border-gray-400'
+              }`}>
+                {publishMode === 'direct' && (
+                  <div className="w-3 h-3 bg-white rounded-full"></div>
+                )}
               </div>
-              <p className="text-sm text-gray-600">
-                Instantly publish to platform. Bypasses review queue.
-                {draft.isComingSoon && ' Course will be marked as "Coming Soon".'}
+
+              <div className={`flex items-center gap-3 mb-3 ${
+                publishMode === 'direct' ? 'text-green-700' : 'text-gray-700'
+              }`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  publishMode === 'direct'
+                    ? 'bg-green-600 shadow-lg'
+                    : 'bg-gray-100 group-hover:bg-gray-200'
+                }`}>
+                  <Zap className={`w-6 h-6 ${publishMode === 'direct' ? 'text-white' : 'text-gray-600'}`} />
+                </div>
+                <h4 className={`font-bold text-lg ${
+                  publishMode === 'direct' ? 'text-green-900' : 'text-gray-900'
+                }`}>
+                  Publish Now
+                </h4>
+              </div>
+              <p className={`text-sm leading-relaxed ${
+                publishMode === 'direct' ? 'text-green-800' : 'text-gray-600'
+              }`}>
+                ⚡ <strong>Instant publish</strong> - Course goes live immediately. Bypasses review queue.
+                {draft.isComingSoon && ' Will be marked as "Coming Soon".'}
               </p>
             </button>
 
+            {/* Submit for Review - Blue when selected */}
             <button
               type="button"
               onClick={() => setPublishMode('review')}
-              className={`p-4 rounded-xl border-2 transition-all text-left ${
+              className={`relative p-5 rounded-2xl border-3 transition-all text-left group ${
                 publishMode === 'review'
-                  ? 'border-purple-600 bg-purple-50 shadow-[0_4px_16px_rgba(147,51,234,0.2)]'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-[0_8px_24px_rgba(59,130,246,0.3)] scale-105'
+                  : 'border-gray-300 bg-white hover:border-gray-400 hover:shadow-md'
               }`}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <Send className="w-5 h-5 text-blue-600" />
-                <h4 className="font-bold text-gray-900">Submit for Review</h4>
+              {/* Radio indicator */}
+              <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                publishMode === 'review'
+                  ? 'border-blue-600 bg-blue-600'
+                  : 'border-gray-300 bg-white group-hover:border-gray-400'
+              }`}>
+                {publishMode === 'review' && (
+                  <div className="w-3 h-3 bg-white rounded-full"></div>
+                )}
               </div>
-              <p className="text-sm text-gray-600">
-                Standard educator flow. Course enters review queue for quality check.
+
+              <div className={`flex items-center gap-3 mb-3 ${
+                publishMode === 'review' ? 'text-blue-700' : 'text-gray-700'
+              }`}>
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                  publishMode === 'review'
+                    ? 'bg-blue-600 shadow-lg'
+                    : 'bg-gray-100 group-hover:bg-gray-200'
+                }`}>
+                  <Send className={`w-6 h-6 ${publishMode === 'review' ? 'text-white' : 'text-gray-600'}`} />
+                </div>
+                <h4 className={`font-bold text-lg ${
+                  publishMode === 'review' ? 'text-blue-900' : 'text-gray-900'
+                }`}>
+                  Submit for Review
+                </h4>
+              </div>
+              <p className={`text-sm leading-relaxed ${
+                publishMode === 'review' ? 'text-blue-800' : 'text-gray-600'
+              }`}>
+                📋 <strong>Standard flow</strong> - Course enters review queue for quality check (2-3 days).
               </p>
             </button>
           </div>
