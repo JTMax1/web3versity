@@ -70,6 +70,49 @@ export function CourseMetadataStep() {
         </div>
       </div>
 
+      {/* Thumbnail Emoji Picker */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-3">
+          Course Emoji *
+        </label>
+        <p className="text-sm text-gray-500 mb-4">
+          Choose a single emoji to represent your course
+        </p>
+        <div className="grid grid-cols-8 md:grid-cols-12 gap-2">
+          {[
+            '📚', '📖', '📝', '📘', '📙', '📕',
+            '💻', '⌨️', '🖥️', '💡', '🧠', '🎓',
+            '🚀', '⚡', '🔥', '✨', '🌟', '💫',
+            '🎯', '🎪', '🎨', '🎭', '🎬', '🎮',
+            '🔒', '🔑', '🛡️', '⚙️', '🔧', '🔨',
+            '🌐', '🌍', '🌎', '🌏', '🗺️', '🧭',
+            '💰', '💸', '💳', '💵', '🪙', '📊',
+            '🤝', '👥', '👤', '🙋', '🙌', '👏',
+          ].map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => updateMetadata({ thumbnailEmoji: emoji })}
+              className={`text-3xl p-3 rounded-xl border-2 transition-all hover:scale-110 ${
+                draft.thumbnailEmoji === emoji
+                  ? 'border-[#0084C7] bg-blue-50 shadow-[0_4px_16px_rgba(0,132,199,0.2)]'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              title={emoji}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 p-4 bg-gray-50 rounded-xl flex items-center gap-3">
+          <span className="text-4xl">{draft.thumbnailEmoji}</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Selected Emoji</p>
+            <p className="text-xs text-gray-600">This will appear on your course card</p>
+          </div>
+        </div>
+      </div>
+
       {/* Track Selection */}
       <div>
         <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">

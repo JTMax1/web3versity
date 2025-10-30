@@ -64,6 +64,7 @@ export interface CourseDraft {
   track: 'explorer';
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   estimatedHours: number;
+  thumbnailEmoji: string;
   imageUrl?: string;
 
   // Step 2: Learning Objectives
@@ -109,7 +110,7 @@ interface CourseCreationState {
   previousStep: () => void;
 
   // Course metadata (Step 1)
-  updateMetadata: (metadata: Partial<Pick<CourseDraft, 'title' | 'description' | 'track' | 'difficulty' | 'estimatedHours' | 'imageUrl'>>) => void;
+  updateMetadata: (metadata: Partial<Pick<CourseDraft, 'title' | 'description' | 'track' | 'difficulty' | 'estimatedHours' | 'thumbnailEmoji' | 'imageUrl'>>) => void;
 
   // Learning objectives (Step 2)
   addObjective: (text: string) => void;
@@ -148,6 +149,7 @@ const INITIAL_DRAFT: CourseDraft = {
   track: 'explorer',
   difficulty: 'beginner',
   estimatedHours: 1,
+  thumbnailEmoji: '📚',
   learningObjectives: [],
   lessons: [],
 };
@@ -378,6 +380,7 @@ export const useCourseCreationStore = create<CourseCreationState>()(
               track: draft.track,
               difficulty: draft.difficulty,
               estimated_hours: draft.estimatedHours,
+              thumbnail_emoji: draft.thumbnailEmoji,
               image_url: draft.imageUrl,
               learning_objectives: draft.learningObjectives,
               lessons: draft.lessons,
@@ -451,6 +454,7 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             track: courseData.track || 'explorer',
             difficulty: courseData.difficulty || 'beginner',
             estimatedHours: courseData.estimated_hours || 1,
+            thumbnailEmoji: courseData.thumbnail_emoji || '📚',
             imageUrl: courseData.image_url,
             learningObjectives: courseData.learning_objectives || [],
             lessons: courseData.lessons || [],
