@@ -7,7 +7,7 @@ import {
   Activity,
   Award,
   GraduationCap,
-  Zap,
+  Sparkles,
 } from 'lucide-react';
 import {
   usePlatformMetrics,
@@ -77,7 +77,7 @@ export function OverviewTab() {
           title="XP Distributed"
           value={metrics.totalXPDistributed.toLocaleString()}
           subtitle={`${metrics.totalLessonsCompleted} lessons completed`}
-          icon={Zap}
+          icon={Sparkles}
           color="yellow"
         />
         <MetricCard

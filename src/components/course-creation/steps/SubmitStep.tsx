@@ -6,14 +6,19 @@
 
 import React, { useState } from 'react';
 import { useCourseCreationStore } from '../../../stores/course-creation-store';
+import { useWallet } from '../../../contexts/WalletContext';
 import { Button } from '../../ui/button';
-import { Send, Check, AlertCircle } from 'lucide-react';
+import { Send, Check, AlertCircle, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export function SubmitStep() {
   const navigate = useNavigate();
+  const { user } = useWallet();
   const { draft, isSubmitting, validateAll, submitForReview, saveDraft } = useCourseCreationStore();
   const [agreed, setAgreed] = useState(false);
+  const [publishMode, setPublishMode] = useState<'review' | 'direct'>('review');
+
+  const isAdmin = user?.is_admin || false;
 
   const validationErrors = validateAll();
   const errors = validationErrors.filter(e => e.severity === 'error');
@@ -106,9 +111,60 @@ export function SubmitStep() {
         </div>
       </div>
 
+      {/* Admin Publish Mode Selector */}
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">👑 Admin Publishing Options</h3>
+          <p className="text-sm text-gray-700 mb-4">
+            As an admin, you can choose to publish this course immediately or submit it for standard review.
+          </p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => setPublishMode('direct')}
+              className={`p-4 rounded-xl border-2 transition-all text-left ${
+                publishMode === 'direct'
+                  ? 'border-purple-600 bg-purple-50 shadow-[0_4px_16px_rgba(147,51,234,0.2)]'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-5 h-5 text-purple-600" />
+                <h4 className="font-bold text-gray-900">Publish Now</h4>
+              </div>
+              <p className="text-sm text-gray-600">
+                Instantly publish to platform. Bypasses review queue.
+                {draft.isComingSoon && ' Course will be marked as "Coming Soon".'}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPublishMode('review')}
+              className={`p-4 rounded-xl border-2 transition-all text-left ${
+                publishMode === 'review'
+                  ? 'border-purple-600 bg-purple-50 shadow-[0_4px_16px_rgba(147,51,234,0.2)]'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Send className="w-5 h-5 text-blue-600" />
+                <h4 className="font-bold text-gray-900">Submit for Review</h4>
+              </div>
+              <p className="text-sm text-gray-600">
+                Standard educator flow. Course enters review queue for quality check.
+              </p>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Review Timeline */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-100">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">What to Expect</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">
+          {isAdmin && publishMode === 'direct' ? 'Direct Publishing' : 'What to Expect'}
+        </h3>
 
         <div className="space-y-4">
           <div className="flex gap-4">
@@ -255,6 +311,11 @@ export function SubmitStep() {
             <>
               <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
               Submitting...
+            </>
+          ) : isAdmin && publishMode === 'direct' ? (
+            <>
+              <Zap className="w-5 h-5 mr-3" />
+              Publish Course Now
             </>
           ) : (
             <>

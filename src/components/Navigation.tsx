@@ -141,13 +141,6 @@ export function Navigation() {
                   to="/faucet"
                   active={location.pathname === '/faucet'}
                 />
-                {stats?.isEducator && (
-                  <NavButton
-                    label="Review Courses"
-                    to="/admin/review"
-                    active={location.pathname === '/admin/review'}
-                  />
-                )}
               </>
             )}
           </div>
@@ -212,14 +205,6 @@ export function Navigation() {
                     active={location.pathname === '/faucet'}
                     onClick={() => setMobileMenuOpen(false)}
                   />
-                  {stats?.isEducator && (
-                    <MobileNavButton
-                      label="Review Courses"
-                      to="/admin/review"
-                      active={location.pathname === '/admin/review'}
-                      onClick={() => setMobileMenuOpen(false)}
-                    />
-                  )}
                   <div className="mt-4 pt-4 border-t border-white/20">
                     <button
                       onClick={() => {

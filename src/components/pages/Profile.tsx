@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock, Download, ChevronDown, ChevronUp, Mail } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
@@ -13,7 +14,12 @@ import { CertificatesGallery } from '../profile/CertificatesGallery';
 import { CourseCompleteModal } from '../CourseCompleteModal';
 
 export function Profile() {
+  const { username: urlUsername } = useParams<{ username: string }>();
+  const navigate = useNavigate();
   const { user, refreshUser } = useWallet();
+
+  // Use URL username if provided, otherwise use current user
+  const isOwnProfile = !urlUsername || urlUsername === user?.username;
   const { data: stats, isLoading: statsLoading } = useUserStats(user?.id);
   const { enrollments: completedCourses, isLoading: coursesLoading } = useCompletedCourses(user?.id);
   const { data: allBadges, isLoading: badgesLoading } = useUserBadgesWithStatus(user?.id);
@@ -30,6 +36,13 @@ export function Profile() {
       </div>
     );
   }
+
+  // If viewing someone else's profile, redirect to own profile for now
+  if (!isOwnProfile) {
+    navigate(`/profile/${user.username}`, { replace: true });
+    return null;
+  }
+
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [editedUsername, setEditedUsername] = useState(user.username || '');
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);

@@ -79,6 +79,9 @@ export interface CourseDraft {
   lastSaved?: string;
   createdAt?: string;
   updatedAt?: string;
+
+  // Admin-only features
+  isComingSoon?: boolean; // Mark course as "Coming Soon" (visible but not enrollable)
 }
 
 interface ValidationError {
@@ -110,7 +113,8 @@ interface CourseCreationState {
   previousStep: () => void;
 
   // Course metadata (Step 1)
-  updateMetadata: (metadata: Partial<Pick<CourseDraft, 'title' | 'description' | 'track' | 'difficulty' | 'estimatedHours' | 'thumbnailEmoji' | 'imageUrl'>>) => void;
+  updateMetadata: (metadata: Partial<Pick<CourseDraft, 'title' | 'description' | 'track' | 'difficulty' | 'estimatedHours' | 'thumbnailEmoji' | 'imageUrl' | 'isComingSoon'>>) => void;
+  setComingSoon: (isComingSoon: boolean) => void;
 
   // Learning objectives (Step 2)
   addObjective: (text: string) => void;
@@ -206,6 +210,13 @@ export const useCourseCreationStore = create<CourseCreationState>()(
       updateMetadata: (metadata) => {
         set((state) => ({
           draft: { ...state.draft, ...metadata },
+          isDirty: true,
+        }));
+      },
+
+      setComingSoon: (isComingSoon: boolean) => {
+        set((state) => ({
+          draft: { ...state.draft, isComingSoon },
           isDirty: true,
         }));
       },

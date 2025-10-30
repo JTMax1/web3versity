@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, ChevronDown, Shield, GraduationCap, User, MoreVertical, Check } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { Search, Shield, GraduationCap, User, MoreVertical } from 'lucide-react';
 import { useAllUsers, useUpdateUserRole, useBulkUpdateUserRoles } from '../../../hooks/use-user-management';
 import { useWallet } from '../../../contexts/WalletContext';
 
@@ -72,13 +73,13 @@ export function UserRoleManagementTab() {
         <div className="flex flex-col md:flex-row gap-4">
           {/* Search */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search by username, email, or wallet address..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7] focus:border-transparent"
             />
           </div>
 
@@ -86,7 +87,7 @@ export function UserRoleManagementTab() {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as RoleFilter)}
-            className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7]"
+            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7]"
           >
             <option value="all">All Roles</option>
             <option value="student">Students</option>
@@ -98,7 +99,7 @@ export function UserRoleManagementTab() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7]"
+            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0084C7]"
           >
             <option value="join_date">Join Date</option>
             <option value="xp">Total XP</option>
@@ -223,34 +224,42 @@ export function UserRoleManagementTab() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="relative group">
-                          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                            <MoreVertical className="w-4 h-4 text-gray-600" />
-                          </button>
-                          <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
-                            <button
-                              onClick={() => handleRoleChange(user.id, 'student')}
-                              disabled={role === 'student'}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-xl disabled:opacity-50"
-                            >
-                              Make Student
+                        <DropdownMenu.Root>
+                          <DropdownMenu.Trigger asChild>
+                            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors outline-none">
+                              <MoreVertical className="w-4 h-4 text-gray-600" />
                             </button>
-                            <button
-                              onClick={() => handleRoleChange(user.id, 'educator')}
-                              disabled={role === 'educator'}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50"
+                          </DropdownMenu.Trigger>
+                          <DropdownMenu.Portal>
+                            <DropdownMenu.Content
+                              className="w-48 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden"
+                              align="end"
+                              sideOffset={5}
                             >
-                              Make Educator
-                            </button>
-                            <button
-                              onClick={() => handleRoleChange(user.id, 'admin')}
-                              disabled={role === 'admin'}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 last:rounded-b-xl disabled:opacity-50"
-                            >
-                              Make Admin
-                            </button>
-                          </div>
-                        </div>
+                              <DropdownMenu.Item
+                                onSelect={() => handleRoleChange(user.id, 'student')}
+                                disabled={role === 'student'}
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed outline-none cursor-pointer"
+                              >
+                                Make Student
+                              </DropdownMenu.Item>
+                              <DropdownMenu.Item
+                                onSelect={() => handleRoleChange(user.id, 'educator')}
+                                disabled={role === 'educator'}
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed outline-none cursor-pointer"
+                              >
+                                Make Educator
+                              </DropdownMenu.Item>
+                              <DropdownMenu.Item
+                                onSelect={() => handleRoleChange(user.id, 'admin')}
+                                disabled={role === 'admin'}
+                                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed outline-none cursor-pointer"
+                              >
+                                Make Admin
+                              </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                          </DropdownMenu.Portal>
+                        </DropdownMenu.Root>
                       </td>
                     </tr>
                   );

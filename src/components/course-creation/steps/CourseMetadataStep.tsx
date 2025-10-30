@@ -6,10 +6,14 @@
 
 import React from 'react';
 import { useCourseCreationStore } from '../../../stores/course-creation-store';
-import { BookOpen, Clock, Target, TrendingUp } from 'lucide-react';
+import { useWallet } from '../../../contexts/WalletContext';
+import { BookOpen, Clock, Target, TrendingUp, AlertCircle } from 'lucide-react';
 
 export function CourseMetadataStep() {
-  const { draft, updateMetadata } = useCourseCreationStore();
+  const { draft, updateMetadata, setComingSoon } = useCourseCreationStore();
+  const { user } = useWallet();
+
+  const isAdmin = user?.is_admin || false;
 
   const difficultyOptions = [
     { value: 'beginner', label: 'Beginner', emoji: '🌱', description: 'No prior knowledge required' },
@@ -231,6 +235,42 @@ export function CourseMetadataStep() {
           </div>
         )}
       </div>
+
+      {/* Admin-Only: Coming Soon Toggle */}
+      {isAdmin && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-100">
+          <div className="flex items-start gap-4">
+            <AlertCircle className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+            <div className="flex-1">
+              <h4 className="font-bold text-gray-900 mb-2">👑 Admin Feature: Coming Soon</h4>
+              <p className="text-sm text-gray-700 mb-4">
+                Mark this course as "Coming Soon" to make it visible in the course catalog without allowing enrollments yet.
+                This is useful for building anticipation for upcoming courses.
+              </p>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <button
+                  type="button"
+                  onClick={() => setComingSoon(!draft.isComingSoon)}
+                  className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 ${
+                    draft.isComingSoon ? 'bg-purple-600' : 'bg-gray-200'
+                  }`}
+                  role="switch"
+                  aria-checked={draft.isComingSoon}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      draft.isComingSoon ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className="text-sm font-medium text-gray-900">
+                  {draft.isComingSoon ? 'Course marked as Coming Soon' : 'Mark as Coming Soon'}
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info Box */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl p-6 border border-blue-100">

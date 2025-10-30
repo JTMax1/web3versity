@@ -127,6 +127,7 @@ export interface Course {
   // Status
   is_published: boolean;
   is_featured: boolean;
+  is_coming_soon: boolean;
 }
 
 export type CourseInsert = Omit<Course, 'created_at' | 'updated_at'>;

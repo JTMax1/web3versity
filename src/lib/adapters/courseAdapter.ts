@@ -24,6 +24,7 @@ export interface ComponentCourse {
   thumbnail: string;
   lessons: number;
   prerequisites: string[];
+  isComingSoon: boolean;
 }
 
 /**
@@ -46,6 +47,7 @@ export function adaptCourseForComponent(dbCourse: DBCourse): ComponentCourse {
     thumbnail: dbCourse.thumbnail_emoji,
     lessons: dbCourse.total_lessons,
     prerequisites: [], // Will be populated separately if needed
+    isComingSoon: dbCourse.is_coming_soon,
   };
 }
 

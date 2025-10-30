@@ -27,24 +27,8 @@ export function CourseCard({
 }: CourseCardProps) {
   const difficultyColor = getDifficultyColor(course.difficulty);
 
-  // Courses with full content available
-  const coursesWithContent = [
-  'course_001', // Blockchain Fundamentals
-  'course_002', // Mobile Money to Crypto
-  'course_003', // Understanding NFTs
-  'course_004', // Avoiding Crypto Scams in Africa
-  'course_005', // DeFi Basics for Everyone
-  'course_006', // Understanding Hedera Consensus Service (HCS)
-  'course_007', // Reading Blockchain Explorers
-  'course_008', // Introduction to Programming for Web3
-  'course_009', // Hedera SDK Essentials
-  'course_010', // Solidity Smart Contracts on Hedera
-  'course_011', // Building a Full DApp on Hedera
-  'course_012', // Introduction to Blockchain
-];
-
-  
-  const hasContent = coursesWithContent.includes(course.id);
+  // Course is available if it's not marked as "coming soon"
+  const hasContent = !course.isComingSoon;
 
   // Courses with practical blockchain lessons (all courses from 002-044 now have practicals)
   const coursesWithPractical = [
