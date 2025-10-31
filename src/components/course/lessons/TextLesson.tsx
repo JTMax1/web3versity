@@ -12,6 +12,9 @@ interface TextLessonProps {
 export function TextLesson({ content, onComplete, isCompleted = false, isCompleting = false }: TextLessonProps) {
   const [hasScrolled, setHasScrolled] = useState(false);
 
+  // Safety check: ensure content has sections
+  const sections = content?.sections || [];
+
   React.useEffect(() => {
     const handleScroll = (e: any) => {
       const element = e.target;
@@ -31,13 +34,22 @@ export function TextLesson({ content, onComplete, isCompleted = false, isComplet
     return () => container?.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // If no content, show a message
+  if (!content || sections.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">No content available for this lesson.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
-      <div 
+      <div
         id="lesson-content"
         className="max-h-[600px] overflow-y-auto pr-4 space-y-8"
       >
-        {content.sections.map((section: any, index: number) => (
+        {sections.map((section: any, index: number) => (
           <div key={index} className="space-y-4">
             {section.emoji && (
               <div className="text-5xl mb-4">{section.emoji}</div>

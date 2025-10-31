@@ -37,7 +37,7 @@ export function AdminDashboard() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 mb-8 bg-white rounded-full p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.02),inset_2px_2px_8px_rgba(255,255,255,0.9)] max-w-4xl">
+        <div className="flex flex-wrap gap-2 mb-8 bg-white rounded-full p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08),inset_-2px_-2px_8px_rgba(0,0,0,0.02),inset_2px_2px_8px_rgba(255,255,255,0.9)] max-w-4xl">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex-1 px-6 py-2 rounded-full transition-all ${

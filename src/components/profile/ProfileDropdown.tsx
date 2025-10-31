@@ -1,14 +1,19 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Shield } from 'lucide-react';
+import { User, LogOut, Shield, ChevronDown } from 'lucide-react';
 import { useWallet } from '../../contexts/WalletContext';
+import { useUserStats } from '../../hooks/useStats';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 export function ProfileDropdown() {
   const { user, accountId, disconnect } = useWallet();
+  const { data: stats } = useUserStats(user?.id);
   const navigate = useNavigate();
 
   if (!user) return null;
+
+  // Use calculated level from stats, fallback to database value
+  const currentLevel = stats?.currentLevel || user.current_level || 1;
 
   const handleMyProfile = () => {
     navigate(`/profile/${user.username}`);
@@ -25,24 +30,33 @@ export function ProfileDropdown() {
 
   const formatAccountId = (id: string | null) => {
     if (!id) return '';
-    return id.length > 15 ? `${id.slice(0, 10)}...${id.slice(-5)}` : id;
+    // Truncate to first 11 characters for long addresses, or full if shorter
+    return id.length > 11 ? `${id.slice(0, 11)}...` : id;
   };
 
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="flex items-center gap-3 px-4 py-2 rounded-full bg-white hover:bg-gray-50 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-gray-100 outline-none focus:ring-2 focus:ring-[#0084C7] focus:ring-offset-2">
+        <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-white hover:bg-gray-50 transition-all shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-gray-100 outline-none focus:ring-2 focus:ring-[#0084C7] focus:ring-offset-2">
+          {/* Avatar with Account ID */}
+          {accountId && (
+            <span className="hidden lg:inline text-xs font-mono text-gray-700">
+              {formatAccountId(accountId)}
+            </span>
+          )}
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#0084C7] to-[#00a8e8] flex items-center justify-center text-white text-lg font-medium shadow-inner">
             {user.avatar_emoji || '👤'}
           </div>
-          <div className="hidden md:block text-left">
+          <div className=" md:block text-left">
             <div className="text-sm font-semibold text-gray-900 leading-tight">
               {user.username}
             </div>
             <div className="text-xs text-gray-500 leading-tight">
-              Level {user.current_level}
+              {/* Level {currentLevel} */}
+              {formatAccountId(accountId)}
             </div>
           </div>
+          <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
         </button>
       </DropdownMenu.Trigger>
 
@@ -74,7 +88,7 @@ export function ProfileDropdown() {
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-1.5">
                 <span className="text-gray-600">Level</span>
-                <span className="font-bold text-[#0084C7]">{user.current_level}</span>
+                <span className="font-bold text-[#0084C7]">{currentLevel}</span>
               </div>
               <div className="w-px h-4 bg-gray-300" />
               <div className="flex items-center gap-1.5">

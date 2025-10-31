@@ -122,27 +122,38 @@ export function PublishRequestsSubTab() {
         </div>
       ) : pendingCourses && pendingCourses.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pendingCourses.map((course: any) => (
-            <div key={course.draft_id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-              <div className="text-4xl mb-3">{course.learning_objectives?.[0]?.emoji || '📚'}</div>
-              <h3 className="font-semibold text-gray-900 mb-2">{course.course_title}</h3>
-              <p className="text-sm text-gray-600 mb-4 line-clamp-2">{course.description}</p>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs text-gray-500">By {course.creator_username}</span>
-                {course.quality_score && (
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
-                    Score: {course.quality_score}
-                  </span>
-                )}
+          {pendingCourses.map((course: any) => {
+            // Extract emoji from course data
+            // The RPC returns course_data fields at the top level, so look for thumbnail_emoji
+            const courseEmoji = course.thumbnail_emoji || course.course_emoji || '📚';
+
+            return (
+              <div key={course.id || course.draft_id} className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                <div className="text-4xl mb-3">{courseEmoji}</div>
+                <h3 className="font-semibold text-gray-900 mb-2">{course.title}</h3>
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{course.description}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-gray-500">By {course.creator_username}</span>
+                    {course.track && (
+                      <span className="text-xs font-medium text-gray-700 capitalize">{course.track}</span>
+                    )}
+                  </div>
+                  {course.quality_score && (
+                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
+                      Score: {course.quality_score}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedCourse({ ...course, draft_id: course.id })}
+                  className="w-full py-2 bg-[#0084C7] text-white rounded-xl hover:bg-[#0074b7] transition-colors font-medium"
+                >
+                  Review Course
+                </button>
               </div>
-              <button
-                onClick={() => setSelectedCourse(course)}
-                className="w-full py-2 bg-[#0084C7] text-white rounded-xl hover:bg-[#0074b7] transition-colors font-medium"
-              >
-                Review Course
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
