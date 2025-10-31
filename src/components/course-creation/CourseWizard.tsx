@@ -21,7 +21,11 @@ import { ReviewStep } from './steps/ReviewStep';
 import { SubmitStep } from './steps/SubmitStep';
 import { LiveQualityMonitor } from './LiveQualityMonitor';
 
-export function CourseWizard() {
+interface CourseWizardProps {
+  onBackToChoose?: () => void;
+}
+
+export function CourseWizard({ onBackToChoose }: CourseWizardProps = {}) {
   const {
     currentStep,
     maxCompletedStep,
@@ -174,15 +178,26 @@ export function CourseWizard() {
 
         {/* Navigation */}
         <div className="flex items-center justify-between">
-          <Button
-            onClick={previousStep}
-            disabled={currentStep === 1}
-            variant="outline"
-            className="rounded-full px-6"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Previous
-          </Button>
+          {currentStep === 1 && onBackToChoose ? (
+            <Button
+              onClick={onBackToChoose}
+              variant="outline"
+              className="rounded-full px-6"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Mode Selection
+            </Button>
+          ) : (
+            <Button
+              onClick={previousStep}
+              disabled={currentStep === 1}
+              variant="outline"
+              className="rounded-full px-6"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Previous
+            </Button>
+          )}
 
           {currentStep < 5 ? (
             <Button

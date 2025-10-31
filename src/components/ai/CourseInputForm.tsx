@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { Sparkles, BookOpen, Code, HelpCircle } from 'lucide-react';
+import { Sparkles, BookOpen, Code, HelpCircle, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
@@ -26,12 +26,14 @@ interface CourseInputFormProps {
   onGenerate: (prompt: CoursePrompt) => void;
   isLoading?: boolean;
   initialValues?: Partial<CoursePrompt>;
+  onBack?: () => void;
 }
 
 export function CourseInputForm({
   onGenerate,
   isLoading = false,
   initialValues,
+  onBack,
 }: CourseInputFormProps) {
   const [formData, setFormData] = useState<CoursePrompt>({
     track: initialValues?.track || 'explorer',
@@ -238,13 +240,27 @@ export function CourseInputForm({
             </AlertDescription>
           </Alert>
 
-          {/* Submit Button */}
-          <div className="flex justify-end gap-3 pt-4">
+          {/* Action Buttons */}
+          <div className="flex justify-between items-center gap-3 pt-4">
+            {onBack && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={onBack}
+                disabled={isLoading}
+                className="gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Mode Selection
+              </Button>
+            )}
+
             <Button
               type="submit"
               size="lg"
               disabled={isLoading}
-              className="gap-2"
+              className="gap-2 ml-auto"
             >
               {isLoading ? (
                 <>

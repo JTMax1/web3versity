@@ -30,7 +30,11 @@ import { GenerationComplete } from './GenerationComplete';
 
 type WizardStep = 'input' | 'generating' | 'review' | 'complete';
 
-export function CourseGenerator() {
+interface CourseGeneratorProps {
+  onBackToChoose?: () => void;
+}
+
+export function CourseGenerator({ onBackToChoose }: CourseGeneratorProps = {}) {
   const navigate = useNavigate();
 
   // Wizard state
@@ -202,6 +206,7 @@ export function CourseGenerator() {
           onGenerate={handleGenerate}
           isLoading={generateMutation.isPending}
           initialValues={lastPrompt || undefined}
+          onBack={onBackToChoose}
         />
       )}
 

@@ -12,7 +12,7 @@ import { Community } from './components/pages/Community';
 import { Profile } from './components/pages/Profile';
 import VerifyCertificate from './components/pages/VerifyCertificate';
 import { AIGenerator } from './components/pages/AIGenerator';
-import { CreateCoursePage } from './components/pages/CreateCoursePage';
+import { CreateCoursePage } from './pages/CreateCoursePage';
 import { AdminReviewDashboard } from './components/admin/AdminReviewDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { ProtectedRoute } from './components/ProtectedRoute';
