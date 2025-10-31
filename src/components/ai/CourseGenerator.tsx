@@ -19,6 +19,8 @@ import { buildCourseGenerationPrompt } from '../../lib/ai/prompts/course-prompts
 import { performQualityChecks, type QualityReport } from '../../lib/ai/quality-checker';
 import { validateCourse } from '../../lib/schemas/course-schema';
 import { useGenerateCourse, type CoursePrompt, type GeneratedCourse } from '../../hooks/useAI';
+import { convertAICourseToManualDraft } from '../../lib/schemas/transformers';
+import { useCourseCreationStore } from '../../stores/course-creation-store';
 
 // Sub-components
 import { CourseInputForm } from './CourseInputForm';
@@ -154,6 +156,42 @@ export function CourseGenerator() {
   };
 
   /**
+   * Handle editing AI-generated course in manual editor
+   * Converts AI course to manual draft format and loads it
+   */
+  const handleEdit = () => {
+    if (!generatedCourse || !qualityReport) return;
+
+    try {
+      // Convert AI course to manual draft format
+      const manualDraft = convertAICourseToManualDraft(generatedCourse, qualityReport.score);
+
+      // Load draft into course creation store using setState
+      useCourseCreationStore.setState({
+        draft: manualDraft,
+        currentStep: 1,
+        maxCompletedStep: 0,
+        isDirty: true,
+        validationErrors: [],
+      });
+
+      // Navigate to manual course creation page
+      toast.success('Entering edit mode!', {
+        description: 'You can now manually edit this AI-generated course. Changes will be tracked with live quality monitoring.',
+        duration: 4000,
+      });
+
+      navigate('/create-course');
+
+    } catch (error: any) {
+      console.error('Failed to enter edit mode:', error);
+      toast.error('Failed to enter edit mode', {
+        description: error.message || 'An unexpected error occurred',
+      });
+    }
+  };
+
+  /**
    * Render current step
    */
   return (
@@ -182,7 +220,7 @@ export function CourseGenerator() {
           qualityReport={qualityReport}
           onSave={handleSave}
           onRegenerate={handleRegenerate}
-          onEdit={() => toast.info('Inline editing coming soon!')}
+          onEdit={handleEdit}
         />
       )}
 

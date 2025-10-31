@@ -19,6 +19,7 @@ import { LearningObjectivesStep } from './steps/LearningObjectivesStep';
 import { LessonsStep } from './steps/LessonsStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { SubmitStep } from './steps/SubmitStep';
+import { LiveQualityMonitor } from './LiveQualityMonitor';
 
 export function CourseWizard() {
   const {
@@ -57,7 +58,7 @@ export function CourseWizard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="bg-white rounded-3xl p-6 mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
           <div className="flex items-center justify-between mb-6">
@@ -154,9 +155,21 @@ export function CourseWizard() {
           </Alert>
         )}
 
-        {/* Current Step Content */}
-        <div className="bg-white rounded-3xl p-8 mb-6 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
-          <CurrentStepComponent />
+        {/* Main Content Area with Quality Monitor */}
+        <div className="flex gap-6 mb-6">
+          {/* Current Step Content */}
+          <div className="flex-1 bg-white rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+            <CurrentStepComponent />
+          </div>
+
+          {/* Quality Monitor (sticky sidebar) - Hide on submit step */}
+          {currentStep < 5 && (
+            <div className="w-96 flex-shrink-0">
+              <div className="sticky top-24">
+                <LiveQualityMonitor />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}

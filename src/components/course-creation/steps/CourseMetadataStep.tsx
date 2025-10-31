@@ -7,7 +7,9 @@
 import React from 'react';
 import { useCourseCreationStore } from '../../../stores/course-creation-store';
 import { useWallet } from '../../../contexts/WalletContext';
-import { BookOpen, Clock, Target, TrendingUp, AlertCircle } from 'lucide-react';
+import { BookOpen, Clock, Target, TrendingUp, AlertCircle, Tag, Users, Network } from 'lucide-react';
+import { COURSE_CATEGORIES } from '../../../lib/schemas/course-schema-unified';
+import { PrerequisiteCoursesSelector } from '../PrerequisiteCoursesSelector';
 
 export function CourseMetadataStep() {
   const { draft, updateMetadata, setComingSoon } = useCourseCreationStore();
@@ -204,6 +206,75 @@ export function CourseMetadataStep() {
         </p>
       </div>
 
+      {/* Category Selection */}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+          <Tag className="w-4 h-4 text-[#0084C7]" />
+          Course Category *
+        </label>
+        <select
+          value={draft.category || ''}
+          onChange={(e) => updateMetadata({ category: e.target.value })}
+          className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#0084C7] focus:outline-none transition-colors text-gray-900"
+        >
+          <option value="" disabled>Select a category...</option>
+          {COURSE_CATEGORIES.map((cat) => (
+            <option key={cat.value} value={cat.value}>
+              {cat.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-sm text-gray-500 mt-2">
+          Choose the primary category that best describes your course content
+        </p>
+      </div>
+
+      {/* Target Audience */}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+          <Users className="w-4 h-4 text-[#0084C7]" />
+          Target Audience *
+        </label>
+        <textarea
+          value={draft.targetAudience || ''}
+          onChange={(e) => updateMetadata({ targetAudience: e.target.value })}
+          placeholder="Describe who this course is designed for, what background knowledge they should have, and why this course is relevant to them..."
+          rows={4}
+          maxLength={500}
+          className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-[#0084C7] focus:outline-none transition-colors resize-none"
+        />
+        <div className="flex justify-between items-center mt-2">
+          <p className="text-sm text-gray-500">
+            Clearly define your ideal student to help them self-assess fit
+          </p>
+          <span className={`text-sm font-medium ${
+            (draft.targetAudience?.length || 0) < 50
+              ? 'text-red-500'
+              : (draft.targetAudience?.length || 0) >= 500
+              ? 'text-yellow-500'
+              : 'text-gray-400'
+          }`}>
+            {draft.targetAudience?.length || 0}/500 {(draft.targetAudience?.length || 0) < 50 && '(min 50)'}
+          </span>
+        </div>
+      </div>
+
+      {/* Prerequisites Selector */}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+          <Network className="w-4 h-4 text-[#0084C7]" />
+          Prerequisites (Optional)
+        </label>
+        <p className="text-sm text-gray-500 mb-4">
+          Select courses that students should complete before taking this course. Students must complete them in the order you specify.
+        </p>
+        <PrerequisiteCoursesSelector
+          selectedCourses={draft.prerequisites || []}
+          onChange={(courseIds) => updateMetadata({ prerequisites: courseIds })}
+          currentCourseId={draft.id}
+        />
+      </div>
+
       {/* Course Image URL (Optional) */}
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -277,6 +348,9 @@ export function CourseMetadataStep() {
           <li>• Include specific outcomes students will achieve</li>
           <li>• Be realistic about time estimates - students appreciate accuracy</li>
           <li>• Choose difficulty based on prerequisite knowledge needed</li>
+          <li>• Select the most specific category that matches your content</li>
+          <li>• Target audience should be detailed enough for students to self-assess</li>
+          <li>• Only add prerequisites if they're truly necessary for understanding</li>
         </ul>
       </div>
     </div>

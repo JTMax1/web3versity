@@ -67,6 +67,11 @@ export interface CourseDraft {
   thumbnailEmoji: string;
   imageUrl?: string;
 
+  // NEW: From unified schema
+  category?: string; // Required for course discovery
+  targetAudience?: string; // Required, 50-500 chars
+  prerequisites?: string[]; // Array of course IDs
+
   // Step 2: Learning Objectives
   learningObjectives: LearningObjective[];
 
@@ -79,6 +84,9 @@ export interface CourseDraft {
   lastSaved?: string;
   createdAt?: string;
   updatedAt?: string;
+
+  // Quality tracking
+  qualityScore?: number; // 0-100 from quality checker
 
   // Admin-only features
   isComingSoon?: boolean; // Mark course as "Coming Soon" (visible but not enrollable)
@@ -113,7 +121,7 @@ interface CourseCreationState {
   previousStep: () => void;
 
   // Course metadata (Step 1)
-  updateMetadata: (metadata: Partial<Pick<CourseDraft, 'title' | 'description' | 'track' | 'difficulty' | 'estimatedHours' | 'thumbnailEmoji' | 'imageUrl' | 'isComingSoon'>>) => void;
+  updateMetadata: (metadata: Partial<Pick<CourseDraft, 'title' | 'description' | 'track' | 'difficulty' | 'estimatedHours' | 'thumbnailEmoji' | 'imageUrl' | 'category' | 'targetAudience' | 'prerequisites' | 'isComingSoon'>>) => void;
   setComingSoon: (isComingSoon: boolean) => void;
 
   // Learning objectives (Step 2)
@@ -394,9 +402,15 @@ export const useCourseCreationStore = create<CourseCreationState>()(
               estimated_hours: draft.estimatedHours,
               thumbnail_emoji: draft.thumbnailEmoji,
               image_url: draft.imageUrl,
+              category: draft.category,
+              target_audience: draft.targetAudience,
+              prerequisites: draft.prerequisites || [],
               learning_objectives: draft.learningObjectives,
               lessons: draft.lessons,
+              is_coming_soon: draft.isComingSoon,
             },
+            quality_score: draft.qualityScore,
+            created_with: 'manual',
             draft_status: draft.draftStatus || 'draft',
             updated_at: new Date().toISOString(),
           };
@@ -468,9 +482,13 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             estimatedHours: courseData.estimated_hours || 1,
             thumbnailEmoji: courseData.thumbnail_emoji || '📚',
             imageUrl: courseData.image_url,
+            category: courseData.category,
+            targetAudience: courseData.target_audience,
+            prerequisites: courseData.prerequisites || [],
             isComingSoon: courseData.is_coming_soon || false,
             learningObjectives: courseData.learning_objectives || [],
             lessons: courseData.lessons || [],
+            qualityScore: data.quality_score,
             creatorId: data.creator_id,
             draftStatus: data.draft_status,
             createdAt: data.created_at,
