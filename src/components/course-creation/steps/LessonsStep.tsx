@@ -278,8 +278,9 @@ export function LessonsStep() {
       )}
 
       {/* Component Gallery Modal */}
-      {showGallery && (
+      {showGallery && selectedLessonType && (
         <ComponentGallery
+          initialType={selectedLessonType}
           onSelect={handleComponentSelect}
           onClose={() => {
             setShowGallery(false);

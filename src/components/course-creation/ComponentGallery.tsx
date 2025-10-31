@@ -17,10 +17,11 @@ type ComponentType = 'interactive' | 'practical';
 interface ComponentGalleryProps {
   onSelect: (type: ComponentType, componentId: string) => void;
   onClose: () => void;
+  initialType?: ComponentType; // Add prop to set initial tab
 }
 
-export function ComponentGallery({ onSelect, onClose }: ComponentGalleryProps) {
-  const [componentType, setComponentType] = useState<ComponentType>('interactive');
+export function ComponentGallery({ onSelect, onClose, initialType = 'interactive' }: ComponentGalleryProps) {
+  const [componentType, setComponentType] = useState<ComponentType>(initialType);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');

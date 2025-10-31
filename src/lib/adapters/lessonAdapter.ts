@@ -23,56 +23,74 @@ export function adaptLessonForComponent(lesson: Lesson): LessonContent {
     adaptedContent = { sections: [] }; // Fallback for text lessons
   }
 
+  const contentObj = adaptedContent as any;
+
   // For interactive lessons, ensure content.type exists
   if (lesson.lesson_type === 'interactive') {
-    // If content doesn't have a 'type' field, try to infer or use placeholder
-    if (!('type' in adaptedContent)) {
-      console.warn(`Interactive lesson ${lesson.id} missing 'type' field in content`);
-      // Try to find a type field with different casing or structure
-      const contentObj = adaptedContent as any;
+    // Manual course creation stores interactiveType at top level, we need it in content.type
+    if (!('type' in contentObj)) {
+      console.log(`Interactive lesson ${lesson.id}: looking for type field`);
+
+      // Check for interactiveType from manual course creation
       const possibleType = contentObj.interactiveType || contentObj.interactive_type || contentObj.componentType;
 
       if (possibleType) {
-        adaptedContent = { ...contentObj, type: possibleType };
+        // For manual courses: build proper interactive content structure
+        adaptedContent = {
+          type: possibleType,
+          explanation: contentObj.explanation || `Experience the ${possibleType.replace(/_/g, ' ')} interactive component.`,
+          analogy: contentObj.analogy || '',
+          ...contentObj,
+        };
       } else {
-        // Fallback: mark as unknown type
+        // Fallback
+        console.warn(`Interactive lesson ${lesson.id} missing type identifier`);
         adaptedContent = { ...contentObj, type: 'unknown' };
       }
     }
   }
 
-  // For practical lessons, ensure content.interactiveType exists
+  // For practical lessons, ensure content has required fields
   if (lesson.lesson_type === 'practical') {
-    if (!('interactiveType' in adaptedContent)) {
-      console.warn(`Practical lesson ${lesson.id} missing 'interactiveType' field in content`);
-      // Try to find the field with different casing
-      const contentObj = adaptedContent as any;
-      const possibleType = contentObj.type || contentObj.interactive_type || contentObj.practicalType;
+    // Manual course creation stores practicalType and practicalConfig at top level
+    // We need to transform it to match PracticalLesson component expectations
+    const practicalType = contentObj.practicalType || contentObj.practical_type || contentObj.type;
+    const practicalConfig = contentObj.practicalConfig || contentObj.practical_config || {};
 
-      if (possibleType) {
-        adaptedContent = { ...contentObj, interactiveType: possibleType };
-      } else {
-        // Provide default fields for practical lessons
-        adaptedContent = {
-          title: contentObj.title || lesson.title,
-          description: contentObj.description || 'Complete this practical exercise',
-          objective: contentObj.objective || 'Practice your blockchain skills',
-          interactiveType: contentObj.componentType || 'transaction',
-          steps: contentObj.steps || ['Complete the exercise'],
-          tips: contentObj.tips || ['Read the instructions carefully'],
-          successMessage: contentObj.successMessage || 'Great job completing this exercise!',
-          ...contentObj,
-        };
-      }
+    if (practicalType || Object.keys(practicalConfig).length > 0) {
+      // Build proper practical content structure
+      adaptedContent = {
+        title: lesson.title,
+        description: contentObj.description || practicalConfig.description || 'Complete this hands-on exercise',
+        objective: practicalConfig.objective || contentObj.objective || 'Practice your blockchain skills',
+        interactiveType: practicalType || 'transaction',
+        steps: practicalConfig.steps || contentObj.steps || ['Complete the exercise'],
+        tips: practicalConfig.tips || contentObj.tips || ['Read instructions carefully'],
+        successMessage: contentObj.successMessage || practicalConfig.successMessage || 'Great job!',
+        defaultRecipient: practicalConfig.defaultRecipient || contentObj.defaultRecipient,
+        defaultAmount: practicalConfig.defaultAmount || contentObj.defaultAmount,
+        defaultMemo: practicalConfig.defaultMemo || contentObj.defaultMemo,
+      };
+    } else if (!('interactiveType' in contentObj)) {
+      // Fallback for missing practical configuration
+      console.warn(`Practical lesson ${lesson.id} missing practicalType configuration`);
+      adaptedContent = {
+        title: lesson.title,
+        description: 'Complete this practical exercise',
+        objective: 'Practice your blockchain skills',
+        interactiveType: 'transaction',
+        steps: ['Complete the exercise'],
+        tips: ['Read instructions carefully'],
+        successMessage: 'Great job completing this exercise!',
+      };
     }
   }
 
   // For text lessons, ensure content.sections exists
   if (lesson.lesson_type === 'text') {
-    if (!('sections' in adaptedContent) || !Array.isArray((adaptedContent as any).sections)) {
+    if (!('sections' in contentObj) || !Array.isArray(contentObj.sections)) {
       console.warn(`Text lesson ${lesson.id} missing 'sections' array in content`);
       // Try to convert old format or provide fallback
-      const contentObj = adaptedContent as any;
       if (contentObj.text || contentObj.content) {
         // Try to create sections from raw text
         adaptedContent = {
