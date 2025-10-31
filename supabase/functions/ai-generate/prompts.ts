@@ -104,7 +104,7 @@ You are creating a course for the EXPLORER track - designed for Africans who are
 
 ## Lesson Types
 - TEXT: Clear explanations with African analogies
-- INTERACTIVE: wallet_connection_demo, consensus_animation, payment_comparison, etc.
+- INTERACTIVE: wallet_connection, consensus_animation, payment_comparison, etc. 
 - PRACTICAL: Hands-on exercises on Hedera TESTNET
 - QUIZ: Concept testing (not memorization)
 
@@ -345,6 +345,19 @@ Generate the course as JSON matching this EXACT structure. Follow the examples p
 - questions array must have 5-10 questions
 
 ### 4. PRACTICAL LESSON (Hands-on exercise on TESTNET)
+
+**CRITICAL: Use ONLY these exact interactiveType values:**
+- "transaction" - Send HBAR Transaction
+- "nft_minting" - NFT Minter Studio
+- "contract" - Smart Contract Playground
+- "hcs_message" - HCS Message Board
+- "defi" - DeFi Protocol Interaction
+- "dex_swap" - DEX Token Swap
+- "wallet_creation" - Wallet Creation
+- "wallet_investigation" - Wallet Investigation
+- "explorer_navigation" - Explorer Navigation
+- "transaction_detective" - Transaction Detective
+
 \`\`\`json
 {
   "id": "20250127_a3f9_lesson_4",  // MUST match course ID: remove "course_" prefix and add "_lesson_N"
@@ -354,7 +367,7 @@ Generate the course as JSON matching this EXACT structure. Follow the examples p
     "title": "Send Your First Cryptocurrency Transaction",
     "description": "Learn how to send cryptocurrency by completing a real transaction on the Hedera testnet. You'll create a wallet, get test HBAR tokens, and send them to another address. This is 100% safe practice - no real money involved!",
     "objective": "Successfully send test HBAR from your wallet to a recipient address and verify the transaction on the blockchain explorer.",
-    "interactiveType": "transaction_sender",
+    "interactiveType": "transaction",
     "steps": [
       "Create a Hedera testnet wallet using the wallet connection button",
       "Visit the Hedera testnet faucet to get free test HBAR (no real value)",

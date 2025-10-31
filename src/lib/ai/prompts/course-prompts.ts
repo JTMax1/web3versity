@@ -269,11 +269,51 @@ Interactive coding with tests:
 - **references**: Links to Hedera docs
 
 ### PRACTICAL Lessons
-Deploy real contracts on testnet:
-- "Deploy an HTS token for African e-commerce"
-- "Build a remittance smart contract"
-- "Create HCS message logging for supply chain"
-- Include: setup, code, deployment, verification
+Real hands-on exercises on Hedera TESTNET.
+
+**CRITICAL: Use ONLY these exact interactiveType values:**
+
+1. **"transaction"** - Send HBAR Transaction
+   - For: Token transfers, HBAR sending, basic transactions
+   - Example: "Send your first HBAR on testnet"
+
+2. **"nft_minting"** - NFT Minter Studio
+   - For: Creating/minting NFTs, setting metadata
+   - Example: "Create your first African art NFT"
+
+3. **"contract"** - Smart Contract Playground
+   - For: Deploying/interacting with smart contracts
+   - Example: "Deploy a remittance smart contract"
+
+4. **"hcs_message"** - HCS Message Board
+   - For: Hedera Consensus Service, immutable messaging
+   - Example: "Post message to supply chain ledger"
+
+5. **"defi"** - DeFi Protocol Interaction
+   - For: Liquidity pools, staking, DeFi protocols
+   - Example: "Provide liquidity to earn yield"
+
+6. **"dex_swap"** - DEX Token Swap
+   - For: Token swapping, DEX usage, slippage
+   - Example: "Swap HBAR for USDC on Hedera DEX"
+
+7. **"wallet_creation"** - Wallet Creation
+   - For: Creating wallets, generating keys
+   - Example: "Create your Hedera testnet wallet"
+
+8. **"wallet_investigation"** - Wallet Investigation
+   - For: Analyzing wallet activity, transaction forensics
+   - Example: "Investigate wallet transaction history"
+
+9. **"explorer_navigation"** - Explorer Navigation
+   - For: Using HashScan, finding transactions/accounts
+   - Example: "Master HashScan blockchain explorer"
+
+10. **"transaction_detective"** - Transaction Detective
+    - For: Advanced transaction analysis, flow tracing
+    - Example: "Solve the blockchain mystery challenge"
+
+**IMPORTANT**: Do NOT create custom interactiveType values. Use EXACTLY these strings from the list above.
 
 ### QUIZ Lessons
 Technical assessments:
