@@ -193,7 +193,7 @@ export function CertificatesGallery() {
               <p className="text-xs font-mono text-gray-500 mb-3">{cert.certificate_number}</p>
 
               <a
-                href={`https://hashscan.io/testnet/token/${cert.token_id}/${cert.serial_number}`}
+                href={`https://hashscan.io/testnet/token/${cert.token_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1 hover:underline"
@@ -261,7 +261,7 @@ export function CertificatesGallery() {
                   Download Certificate
                 </button>
                 <a
-                  href={`https://hashscan.io/testnet/token/${selectedCert.token_id}/${selectedCert.serial_number}`}
+                  href={`https://hashscan.io/testnet/token/${selectedCert.token_id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 py-3 bg-gray-100 text-gray-900 rounded-xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
