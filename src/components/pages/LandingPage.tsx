@@ -27,7 +27,7 @@ export function LandingPage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full shadow-[0_8px_32px_rgba(0,132,199,0.15),inset_-2px_-2px_8px_rgba(0,0,0,0.05),inset_2px_2px_8px_rgba(255,255,255,0.9)] mb-8">
             <Sparkles className="w-4 h-4 text-[#0084C7]" />
-            <span className="text-sm">Hedera Africa Hackathon 2025</span>
+            <span className="text-sm">Powered by Hedera Hashgraph</span>
           </div>
 
           {/* Main Heading */}
