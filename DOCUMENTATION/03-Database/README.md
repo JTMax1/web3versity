@@ -6,7 +6,41 @@ Complete database documentation for the Web3Versity educational platform, includ
 
 ---
 
-## 📁 Documentation Files
+## 🆕 Latest Schema Reference (October 2025)
+
+### **[WEB3VERSITY-SCHEMA.md](./WEB3VERSITY-SCHEMA.md)** ⭐ NEW
+**Complete Schema Reference - Use This First!**
+
+The definitive guide to the actual production database schema (19 tables).
+
+**Key Features**:
+- ✅ Matches actual production schema exactly
+- ✅ Documents all 19 tables with full column specs
+- ✅ Foreign key relationships and indexes
+- ✅ Entity relationship diagrams
+- ✅ Warns about non-existent tables (`enrollments`, `quiz_attempts`)
+- ✅ Correct ARRAY type documentation
+- ✅ Content structure examples
+
+**Status**: ✅ Verified October 24, 2025
+
+### **[SCHEMA-ALIGNMENT-COMPLETE.md](./SCHEMA-ALIGNMENT-COMPLETE.md)** ⭐ NEW
+**Schema Alignment Report**
+
+Documents all schema corrections and alignment work.
+
+**What's Inside**:
+- Schema mismatches that were fixed
+- Tables that don't exist (common errors)
+- Array type corrections
+- Migration fixes
+- Impact summary
+
+**Status**: ✅ Complete
+
+---
+
+## 📁 Legacy Documentation Files
 
 ### 1. **Database-Migrations.sql** (1,235 lines)
 **The main migration file - run this to set up your database**
