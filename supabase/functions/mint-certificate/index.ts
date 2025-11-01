@@ -382,9 +382,6 @@ serve(async (req) => {
       userHederaAccountId: user.hedera_account_id,
     };
 
-    // Build unique token identifier: collection_token_id/serial_number
-    const uniqueTokenId = `${collectionTokenId}/${serialNumber.toString()}`;
-
     // Store in database - COMPLETE record with ALL required fields
     const certificateRecord: any = {
       // === REQUIRED FIELDS (NOT NULL) ===
@@ -392,7 +389,7 @@ serve(async (req) => {
       course_id: courseId,
       course_title: course.title,
       completion_date: completionDate, // Already in DATE format (YYYY-MM-DD)
-      token_id: uniqueTokenId, // UNIQUE constraint: collection_token_id/serial_number
+      token_id: collectionTokenId, // Just the collection token ID (e.g., "0.0.7103275")
       collection_id: collectionRecordId,
       issued_at: new Date().toISOString(),
       created_at: new Date().toISOString(),

@@ -144,21 +144,36 @@ serve(async (req) => {
 
     const nftData = await nftResponse.json();
 
-    // Decode NFT metadata bytes
-    const metadataBase64 = nftData.metadata;
-    const metadataJson = new TextDecoder().decode(
-      Uint8Array.from(atob(metadataBase64), (c) => c.charCodeAt(0))
-    );
-    const nftMetadata = JSON.parse(metadataJson);
+    // Try to decode NFT metadata (could be base64 JSON or IPFS CID)
+    let nftMetadata: any = null;
+    try {
+      const metadataBase64 = nftData.metadata;
+      // Try base64 decode first
+      const metadataJson = new TextDecoder().decode(
+        Uint8Array.from(atob(metadataBase64), (c) => c.charCodeAt(0))
+      );
+      nftMetadata = JSON.parse(metadataJson);
+    } catch (error) {
+      // If base64 decode fails, metadata might be IPFS CID or raw text
+      console.log('Metadata is not base64 JSON, might be IPFS CID:', nftData.metadata);
+      nftMetadata = { ipfs_cid: nftData.metadata };
+    }
 
     // Fetch full metadata from HFS
     console.log('📥 Fetching metadata from HFS...');
-    const metadataBytes = await fetchFromHFSMirror(
-      certificate.metadata_hfs_file_id,
-      'testnet'
-    );
-    const metadataString = new TextDecoder().decode(metadataBytes);
-    const fullMetadata = JSON.parse(metadataString);
+    let fullMetadata: any = null;
+    try {
+      const metadataBytes = await fetchFromHFSMirror(
+        certificate.metadata_hfs_file_id,
+        'testnet'
+      );
+      const metadataString = new TextDecoder().decode(metadataBytes);
+      fullMetadata = JSON.parse(metadataString);
+    } catch (error) {
+      console.warn('Failed to fetch metadata from HFS:', error);
+      // Use certificate data as fallback
+      fullMetadata = certificate.certificate_data;
+    }
 
     // Validate platform signature
     console.log('🔐 Validating platform signature...');
