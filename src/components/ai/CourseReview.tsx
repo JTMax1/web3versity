@@ -233,15 +233,15 @@ export function CourseReview({
 
         <div className="flex gap-2">
           {/* OLD - Disabled Edit Button */}
-          {/* <Button variant="outline" onClick={onEdit} disabled className="gap-2">
+          <Button variant="outline" onClick={onEdit} disabled className="gap-2">
             <Edit className="w-4 h-4" />
             Edit (Coming Soon)
-          </Button> */}
+          </Button>
           {/* NEW - Active Edit Button */}
-          <Button variant="outline" onClick={onEdit} className="gap-2">
+          {/* <Button variant="outline" onClick={onEdit} className="gap-2">
             <Edit className="w-4 h-4" />
             Edit Course
-          </Button>
+          </Button> */}
           <Button
             onClick={onSave}
             disabled={!qualityReport.passed}

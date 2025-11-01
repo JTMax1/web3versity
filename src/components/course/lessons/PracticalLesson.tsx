@@ -4,6 +4,25 @@
  * Generic container for ALL practical lessons that involve hands-on blockchain interaction.
  * Displays lesson objectives, step-by-step instructions, interactive components,
  * and tracks completion progress.
+ *
+ * COMPONENT ORGANIZATION:
+ * All practical components are imported from '../practical/' directory.
+ * If you move components between ../practical/ and ../interactive/ folders:
+ * 1. Update the import path below (change '../practical/' to '../interactive/')
+ * 2. The fuzzy matcher (practicalTypeMatcher.ts) handles type variations automatically
+ * 3. Components work identically regardless of folder location
+ *
+ * SUPPORTED TYPES:
+ * - transaction: Send HBAR transactions
+ * - nft_minting: Mint NFTs on testnet
+ * - contract: Deploy smart contracts
+ * - hcs_message: Submit HCS messages
+ * - defi: DeFi protocol simulation
+ * - dex_swap: Token swapping
+ * - wallet_creation: Generate new wallets
+ * - wallet_investigation: Blockchain forensics
+ * - explorer_navigation: HashScan challenges
+ * - transaction_detective: Transaction mystery games
  */
 
 import React, { useState } from 'react';
@@ -16,6 +35,10 @@ import { DEXSwapper } from '../practical/DEXSwapper';
 import { HCSMessageBoard } from '../practical/HCSMessageBoard';
 import { NFTMinterStudio } from '../practical/NFTMinterStudio';
 import { SmartContractPlayground } from '../practical/SmartContractPlayground';
+import { WalletCreator } from '../practical/WalletCreator';
+import { WalletInvestigation } from '../practical/WalletInvestigation';
+import { ExplorerNavigation } from '../practical/ExplorerNavigation';
+import { TransactionDetective } from '../practical/TransactionDetective';
 import { toast } from 'sonner';
 
 interface PracticalLessonProps {
@@ -156,39 +179,43 @@ export function PracticalLesson({
         );
 
       case 'wallet_creation':
-        // TODO: Create WalletCreator component for wallet_creation lessons
         return (
-          <div className="text-center py-12 bg-gray-50 rounded-2xl">
-            <p className="text-gray-600">Wallet Creation component coming soon...</p>
-            <p className="text-sm text-gray-500 mt-2">interactiveType: wallet_creation</p>
-          </div>
+          <WalletCreator
+            onInteract={() => {
+              // When user creates wallet, mark as completed
+              handleTransactionSuccess();
+            }}
+          />
         );
 
       case 'wallet_investigation':
-        // TODO: Create WalletInvestigation component for wallet_investigation lessons
         return (
-          <div className="text-center py-12 bg-gray-50 rounded-2xl">
-            <p className="text-gray-600">Wallet Investigation component coming soon...</p>
-            <p className="text-sm text-gray-500 mt-2">interactiveType: wallet_investigation</p>
-          </div>
+          <WalletInvestigation
+            onInteract={() => {
+              // When user completes investigation, mark as completed
+              handleTransactionSuccess();
+            }}
+          />
         );
 
       case 'explorer_navigation':
-        // TODO: Create ExplorerNavigation component for explorer_navigation lessons
         return (
-          <div className="text-center py-12 bg-gray-50 rounded-2xl">
-            <p className="text-gray-600">Explorer Navigation component coming soon...</p>
-            <p className="text-sm text-gray-500 mt-2">interactiveType: explorer_navigation</p>
-          </div>
+          <ExplorerNavigation
+            onInteract={() => {
+              // When user completes navigation challenge, mark as completed
+              handleTransactionSuccess();
+            }}
+          />
         );
 
       case 'transaction_detective':
-        // TODO: Create TransactionDetective component for transaction_detective lessons
         return (
-          <div className="text-center py-12 bg-gray-50 rounded-2xl">
-            <p className="text-gray-600">Transaction Detective component coming soon...</p>
-            <p className="text-sm text-gray-500 mt-2">interactiveType: transaction_detective</p>
-          </div>
+          <TransactionDetective
+            onInteract={() => {
+              // When user solves the case, mark as completed
+              handleTransactionSuccess();
+            }}
+          />
         );
 
       default:

@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 export function SubmitStep() {
   const navigate = useNavigate();
   const { user } = useWallet();
-  const { draft, isSubmitting, validateAll, submitForReview, publishDirect, saveDraft } = useCourseCreationStore();
+  const { draft, isSubmitting, validateAll, submitForReview, publishDirect, saveDraft, resetStore } = useCourseCreationStore();
   const [agreed, setAgreed] = useState(false);
   const [publishMode, setPublishMode] = useState<'review' | 'direct'>('review');
 
@@ -42,6 +42,12 @@ export function SubmitStep() {
     }
 
     if (success) {
+      // Reset store after successful submission to clear persisted draft data
+      // This prevents the course from being pre-populated when creating a new course
+      setTimeout(() => {
+        resetStore();
+      }, 1000);
+
       // Navigate to dashboard or my courses page
       setTimeout(() => {
         navigate('/dashboard');

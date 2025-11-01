@@ -141,15 +141,12 @@ export function CourseGenerator({ onBackToChoose }: CourseGeneratorProps = {}) {
       }
 
       toast.success('Course saved!', {
-        description: 'Course saved as draft. You can publish it later.',
+        description: 'Course saved as draft. You can view it or generate another.',
       });
 
       setStep('complete');
 
-      // Navigate to course after 1 second
-      setTimeout(() => {
-        navigate(`/courses/${generatedCourse.id}`);
-      }, 1000);
+      // Don't auto-navigate - let user choose action from GenerationComplete screen
 
     } catch (error: any) {
       console.error('Save failed:', error);
@@ -164,11 +161,22 @@ export function CourseGenerator({ onBackToChoose }: CourseGeneratorProps = {}) {
    * Converts AI course to manual draft format and loads it
    */
   const handleEdit = () => {
-    if (!generatedCourse || !qualityReport) return;
+    if (!generatedCourse || !qualityReport) {
+      console.error('Cannot edit: Missing generated course or quality report');
+      toast.error('Cannot edit course', {
+        description: 'Course data is not available',
+      });
+      return;
+    }
 
     try {
+      console.log('Starting edit mode conversion...');
+      console.log('Generated course:', generatedCourse);
+      console.log('Quality score:', qualityReport.score);
+
       // Convert AI course to manual draft format
       const manualDraft = convertAICourseToManualDraft(generatedCourse, qualityReport.score);
+      console.log('Converted to manual draft:', manualDraft);
 
       // Load draft into course creation store using setState
       useCourseCreationStore.setState({
@@ -178,14 +186,17 @@ export function CourseGenerator({ onBackToChoose }: CourseGeneratorProps = {}) {
         isDirty: true,
         validationErrors: [],
       });
+      console.log('Store updated with draft');
 
-      // Navigate to manual course creation page
+      // Show success toast
       toast.success('Entering edit mode!', {
         description: 'You can now manually edit this AI-generated course. Changes will be tracked with live quality monitoring.',
         duration: 4000,
       });
 
-      navigate('/create-course');
+      // Navigate to manual course creation page with mode parameter
+      console.log('Navigating to /create-course?mode=manual');
+      navigate('/create-course?mode=manual');
 
     } catch (error: any) {
       console.error('Failed to enter edit mode:', error);

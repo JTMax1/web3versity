@@ -102,7 +102,7 @@ export function CourseActionsMenu({ course }: CourseActionsMenuProps) {
             </button>
             <button
               onClick={handleDelete}
-              className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700 transition-colors font-medium"
+              className="px-4 py-2 rounded-xl bg-red-500 text-white hover:bg-red-500 transition-colors font-medium"
             >
               Delete Course
             </button>

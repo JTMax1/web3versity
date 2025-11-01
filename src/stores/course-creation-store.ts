@@ -564,13 +564,28 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             return false;
           }
 
-          // Call submit_draft_for_review RPC function
-          const { error } = await supabase.rpc('submit_draft_for_review', {
-            p_draft_id: draft.id,
-            p_creator_id: dbUserId,
+          console.log('[submitForReview] Debug info:', {
+            draft_id: draft.id,
+            creator_id: dbUserId,
+            draft_status: draft.draftStatus,
           });
 
-          if (error) throw error;
+          // Call submit_draft_for_review RPC function to handle validation and status update
+          const { data, error } = await supabase.rpc('submit_draft_for_review' as any, {
+            p_draft_id: draft.id,
+            p_creator_id: dbUserId,
+          } as any);
+
+          if (error) {
+            console.error('Error submitting draft for review:', error);
+            throw error;
+          }
+
+          // Check if RPC function returned an error in the data
+          if (data && !data.success) {
+            console.error('RPC function returned error:', data.error);
+            throw new Error(data.error || 'Failed to submit draft');
+          }
 
           set((state) => ({
             draft: { ...state.draft, draftStatus: 'pending_review' },
@@ -622,8 +637,20 @@ export const useCourseCreationStore = create<CourseCreationState>()(
             return false;
           }
 
-          // Check if user is admin
-          if (!user.user_metadata?.is_admin) {
+          // Check if user is admin by fetching database user record
+          const { data: dbUser, error: userError } = await supabase
+            .from('users')
+            .select('is_admin')
+            .eq('id', dbUserId)
+            .single();
+
+          if (userError || !dbUser) {
+            console.error('Error fetching user:', userError);
+            toast.error('Failed to verify admin permissions');
+            return false;
+          }
+
+          if (!dbUser.is_admin) {
             toast.error('Only admins can directly publish courses');
             return false;
           }
@@ -715,8 +742,22 @@ export const useCourseCreationStore = create<CourseCreationState>()(
                 errors.push({ field: `lesson-${index}`, message: `Lesson ${index + 1} title is required`, severity: 'error' });
               }
 
-              if (lesson.type === 'text' && (!lesson.content || lesson.content.trim().length === 0)) {
-                errors.push({ field: `lesson-${index}`, message: `Lesson ${index + 1} content is empty`, severity: 'error' });
+              // Text lesson validation - handle both string (manual) and object (AI) content
+              if (lesson.type === 'text') {
+                let hasContent = false;
+
+                if (typeof lesson.content === 'string') {
+                  // Manual editor format: content is a string
+                  hasContent = lesson.content && lesson.content.trim().length > 0;
+                } else if (lesson.content && typeof lesson.content === 'object') {
+                  // AI/Unified format: content is TextLessonContent object with sections
+                  const sections = (lesson.content as any).sections;
+                  hasContent = Array.isArray(sections) && sections.length > 0;
+                }
+
+                if (!hasContent) {
+                  errors.push({ field: `lesson-${index}`, message: `Lesson ${index + 1} content is empty`, severity: 'error' });
+                }
               }
 
               if (lesson.type === 'interactive' && !lesson.interactiveType) {

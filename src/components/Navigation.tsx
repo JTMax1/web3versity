@@ -80,13 +80,13 @@ export function Navigation() {
           {/* Left Section: Hamburger (mobile only) + Logo */}
           <div className="flex items-center gap-4">
             {/* Mobile Menu Button - ONLY on mobile */}
-            <button
+            {/* <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            </button> */}
 
             {/* Logo + Brand text only shown on desktop */}
             <Link to="/" className="flex items-center gap-3 group">
@@ -95,7 +95,7 @@ export function Navigation() {
                 alt="Web3versity Logo"
                 className="h-10 md:h-12 w-auto group-hover:scale-105 transition-transform"
               />
-              <span className="hidden md:inline-block text-white text-xl md:text-2xl font-bold tracking-tight drop-shadow-md">
+              <span className="md:inline-block text-white text-xl md:text-2xl font-bold tracking-tight drop-shadow-md">
                 Web3versity
               </span>
             </Link>

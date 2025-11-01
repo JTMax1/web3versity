@@ -18,6 +18,7 @@ import {
   UnifiedCourse,
   generateCourseId,
 } from './course-schema-unified';
+import { matchPracticalType, autoFixPracticalLessons } from './practicalTypeMatcher';
 import type { CourseDraft, LessonContent, LearningObjective } from '../../stores/course-creation-store';
 import type { GeneratedCourse } from '../ai/ai-service';
 
@@ -27,31 +28,59 @@ import type { GeneratedCourse } from '../ai/ai-service';
 
 /**
  * Transforms AI-generated course to unified format
+ * Auto-fixes practical lesson types using fuzzy matcher
  */
 export function aiCourseToUnified(aiCourse: GeneratedCourse): UnifiedCourse {
+  // Auto-fix practical lesson types
+  const { fixedLessons, needsManualSelection } = autoFixPracticalLessons(aiCourse.lessons);
+
+  // Log warnings for lessons that need manual selection
+  if (needsManualSelection.length > 0) {
+    console.warn('[AI → Unified] Practical lessons with unmapped types:', needsManualSelection);
+    console.warn('These lessons will need manual practicalType selection in the editor');
+  }
+
   return {
     id: aiCourse.id,
     title: aiCourse.title,
     description: aiCourse.description,
     track: aiCourse.track,
     difficulty: aiCourse.difficulty,
-    estimated_hours: aiCourse.estimated_hours,
-    thumbnail_emoji: aiCourse.thumbnail_emoji,
+    estimated_hours: aiCourse.estimatedHours,
+    thumbnail_emoji: aiCourse.thumbnailEmoji,
     image_url: undefined,
     category: aiCourse.category,
-    target_audience: aiCourse.target_audience,
+    target_audience: aiCourse.targetAudience,
     prerequisites: aiCourse.prerequisites || [],
-    learning_objectives: aiCourse.learning_objectives,
-    lessons: aiCourse.lessons.map((lesson, index) => ({
-      id: lesson.id,
-      title: lesson.title,
-      lesson_type: lesson.lesson_type,
-      duration_minutes: lesson.duration_minutes,
-      completion_xp: lesson.completion_xp,
-      perfect_score_xp: lesson.perfect_score_xp || lesson.completion_xp * 3,
-      content: lesson.content,
-      sequence_number: index + 1,
-    })),
+    learning_objectives: aiCourse.learningObjectives,
+    lessons: fixedLessons.map((lesson, index) => {
+      // Validate and fix practical type if needed
+      let content = lesson.content;
+
+      if (lesson.lesson_type === 'practical' && content?.interactiveType) {
+        const matchedType = matchPracticalType(content.interactiveType);
+        if (matchedType) {
+          content = {
+            ...content,
+            interactiveType: matchedType,
+          };
+          console.log(`[AI → Unified] Fixed practical type for lesson "${lesson.title}": ${content.interactiveType} → ${matchedType}`);
+        } else {
+          console.warn(`[AI → Unified] Could not map practical type "${content.interactiveType}" for lesson "${lesson.title}"`);
+        }
+      }
+
+      return {
+        id: lesson.id,
+        title: lesson.title,
+        lesson_type: lesson.lesson_type,
+        duration_minutes: lesson.duration_minutes,
+        completion_xp: lesson.completion_xp,
+        perfect_score_xp: lesson.perfect_score_xp || lesson.completion_xp * 3,
+        content,
+        sequence_number: index + 1,
+      };
+    }),
     creator_id: '', // Set when saving
     created_with: 'ai',
     draft_status: 'draft',
@@ -152,11 +181,24 @@ function transformManualLessonContent(lesson: LessonContent): any {
     case 'practical':
       // Practical lesson: practicalConfig needs to be flattened
       const config = lesson.practicalConfig || {};
+
+      // Validate and fix practicalType using fuzzy matcher
+      let practicalType = lesson.practicalType || 'transaction';
+      const matchedType = matchPracticalType(practicalType);
+
+      if (matchedType && matchedType !== practicalType) {
+        console.log(`[Manual → Unified] Fixed practical type for lesson "${lesson.title}": ${practicalType} → ${matchedType}`);
+        practicalType = matchedType;
+      } else if (!matchedType) {
+        console.warn(`[Manual → Unified] Could not map practical type "${practicalType}" for lesson "${lesson.title}", defaulting to "transaction"`);
+        practicalType = 'transaction';
+      }
+
       return {
         title: lesson.title,
         description: config.objective || '',
         objective: config.objective || '',
-        interactiveType: lesson.practicalType || 'transaction',
+        interactiveType: practicalType,
         steps: config.steps || [],
         tips: config.tips || [],
         successMessage: 'Great job completing this exercise!',
@@ -373,17 +415,35 @@ export function transformDraftForQualityCheck(draft: CourseDraft): UnifiedCourse
 /**
  * Converts AI-generated course to manual draft with quality score preserved
  * Used when user clicks "Edit" on AI-generated course
+ * Auto-fixes practical lesson types during conversion
  */
 export function convertAICourseToManualDraft(
   aiCourse: GeneratedCourse,
   qualityScore?: number
 ): CourseDraft {
+  // Convert to unified format (which auto-fixes practical types)
   const unified = aiCourseToUnified(aiCourse);
+
+  // Convert to manual draft format
   const draft = unifiedCourseToManualDraft(unified);
+
+  // Auto-fix any remaining practical type issues in the draft lessons
+  const { fixedLessons, needsManualSelection } = autoFixPracticalLessons(draft.lessons);
+
+  if (needsManualSelection.length > 0) {
+    console.warn('[AI → Manual Draft] Lessons requiring manual practical type selection:', needsManualSelection);
+    // Store info about lessons needing manual selection
+    (draft as any).practicalLessonsNeedingSelection = needsManualSelection;
+  }
+
+  // Use the fixed lessons
+  draft.lessons = fixedLessons;
 
   // Preserve quality score in draft metadata
   (draft as any).qualityScore = qualityScore;
   (draft as any).originallyCreatedWith = 'ai';
+
+  console.log(`[AI → Manual Draft] Converted course "${draft.title}" with ${draft.lessons.length} lessons (${needsManualSelection.length} need manual selection)`);
 
   return draft;
 }

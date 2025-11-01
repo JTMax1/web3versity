@@ -27,6 +27,7 @@ interface CourseWizardProps {
 
 export function CourseWizard({ onBackToChoose }: CourseWizardProps = {}) {
   const {
+    draft,
     currentStep,
     maxCompletedStep,
     isDirty,
@@ -38,6 +39,15 @@ export function CourseWizard({ onBackToChoose }: CourseWizardProps = {}) {
     previousStep,
     saveDraft,
   } = useCourseCreationStore();
+
+  // Debug: Log when component mounts and when draft changes
+  useEffect(() => {
+    console.log('CourseWizard mounted/updated');
+    console.log('Current step:', currentStep);
+    console.log('Draft data:', draft);
+    console.log('Draft title:', draft.title);
+    console.log('Draft lessons count:', draft.lessons.length);
+  }, [currentStep, draft]);
 
   // Auto-save every 2 minutes if dirty
   useEffect(() => {

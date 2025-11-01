@@ -19,6 +19,15 @@ export function CreateCoursePage() {
   const initialMode = searchParams.get('mode') as CreationMode | null;
   const [mode, setMode] = useState<CreationMode>(initialMode || 'choose');
 
+  // Sync mode with URL parameters (important for navigation from AI generator)
+  useEffect(() => {
+    const urlMode = searchParams.get('mode') as CreationMode | null;
+    if (urlMode && urlMode !== mode) {
+      console.log('URL mode changed to:', urlMode);
+      setMode(urlMode);
+    }
+  }, [searchParams]);
+
   // Update URL when mode changes
   useEffect(() => {
     if (mode === 'choose') {
@@ -291,6 +300,7 @@ export function CreateCoursePage() {
 
   // AI Mode
   if (mode === 'ai') {
+    console.log('CreateCoursePage: Rendering AI mode');
     return (
       <div className="min-h-screen bg-gray-50">
         <CourseGenerator onBackToChoose={handleBackToChoose} />
@@ -299,6 +309,7 @@ export function CreateCoursePage() {
   }
 
   // Manual Mode
+  console.log('CreateCoursePage: Rendering Manual mode');
   return (
     <div className="min-h-screen bg-gray-50">
       <CourseWizard onBackToChoose={handleBackToChoose} />
