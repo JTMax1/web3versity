@@ -6,12 +6,27 @@
  */
 
 import { supabase } from '../supabase/client';
+import {
+  Client,
+  TopicMessageSubmitTransaction,
+  AccountId,
+  PrivateKey,
+  Transaction,
+} from '@hashgraph/sdk';
+
+// Extend window type for Ethereum provider
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 
 const MIRROR_NODE_URL = 'https://testnet.mirrornode.hedera.com/api/v1';
+const HEDERA_TESTNET_RPC = 'https://testnet.hashio.io/api';
 
 // Public HCS Topic ID for Web3versity Message Board
-// TODO: Replace with actual topic ID after creating topic
-export const MESSAGE_BOARD_TOPIC_ID = '0.0.4827500'; // Placeholder
+// This topic was created with the operator account: 0.0.7045900
+export const MESSAGE_BOARD_TOPIC_ID = '0.0.7180075';
 
 export interface SubmitMessageParams {
   topicId: string;
@@ -84,6 +99,182 @@ export async function submitTopicMessage(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Submit a message to HCS topic using REAL Hedera testnet transactions
+ *
+ * This function submits REAL messages to HCS topics on Hedera testnet using the
+ * backend Edge Function that has proper Hedera operator credentials.
+ *
+ * The user's wallet signs a message to prove authorization, then the backend
+ * submits the actual HCS transaction.
+ *
+ * @param params - Message submission parameters
+ * @returns Submit result with REAL transaction details verifiable on HashScan
+ */
+export async function submitTopicMessageClientSide(
+  params: SubmitMessageParams
+): Promise<SubmitMessageResult> {
+  try {
+    console.log('📤 Submitting REAL HCS message to Hedera testnet...');
+
+    // Get Metamask provider for wallet verification
+    if (typeof window === 'undefined' || !window.ethereum) {
+      return {
+        success: false,
+        error: 'Wallet not found. Please install Metamask or HashPack.',
+      };
+    }
+
+    const provider = window.ethereum;
+
+    // Request wallet connection
+    let accounts: string[];
+    try {
+      accounts = await provider.request({
+        method: 'eth_requestAccounts',
+      }) as string[];
+    } catch (error: any) {
+      if (error.code === 4001) {
+        return {
+          success: false,
+          error: 'Wallet connection rejected by user',
+        };
+      }
+      throw error;
+    }
+
+    if (!accounts || accounts.length === 0) {
+      return {
+        success: false,
+        error: 'No wallet account found. Please connect your wallet.',
+      };
+    }
+
+    console.log('✅ Wallet connected:', accounts[0]);
+
+    // Create message payload
+    const messagePayload = {
+      username: params.username,
+      message: params.message,
+      userAccountId: params.userAccountId || accounts[0],
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log('📝 Message payload:', messagePayload);
+    console.log('🎯 Target topic:', params.topicId);
+
+    // Request wallet signature to prove ownership
+    const authMessage = `Submit HCS Message\nTopic: ${params.topicId}\nMessage: ${params.message}\nUsername: ${params.username}\nTimestamp: ${messagePayload.timestamp}`;
+
+    // Convert string to hex for wallet signing (browser-compatible)
+    const encoder = new TextEncoder();
+    const messageBytes = encoder.encode(authMessage);
+    const authMessageHex = '0x' + Array.from(messageBytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    console.log('⏳ Requesting wallet signature for authorization...');
+
+    let walletSignature: string;
+    try {
+      walletSignature = await provider.request({
+        method: 'personal_sign',
+        params: [authMessageHex, accounts[0]],
+      }) as string;
+
+      console.log('✅ Wallet signature obtained:', walletSignature.substring(0, 20) + '...');
+    } catch (signError: any) {
+      if (signError.code === 4001) {
+        return {
+          success: false,
+          error: 'Wallet signature rejected by user',
+        };
+      }
+      throw signError;
+    }
+
+    // Call Edge Function to submit REAL HCS transaction
+    console.log('⏳ Submitting to Hedera network via Edge Function...');
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/hcs-submit`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          topicId: params.topicId,
+          message: params.message,
+          username: params.username,
+          userAccountId: params.userAccountId || accounts[0],
+          walletAddress: accounts[0],
+          walletSignature: walletSignature,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to submit HCS message');
+    }
+
+    console.log('🎉 HCS message confirmed on Hedera testnet!');
+    console.log('Transaction ID:', result.transactionId);
+    console.log('Consensus Timestamp:', result.consensusTimestamp);
+    console.log('Sequence Number:', result.sequenceNumber);
+
+    // Verify on Mirror Node
+    console.log('🔍 Verifying on Hedera Mirror Node...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    try {
+      const mirrorResponse = await fetch(
+        `${MIRROR_NODE_URL}/topics/${params.topicId}/messages?limit=5&order=desc`
+      );
+
+      if (mirrorResponse.ok) {
+        const mirrorData = await mirrorResponse.json();
+        console.log('✅ Mirror Node verification:', mirrorData.messages?.length || 0, 'recent messages found');
+      }
+    } catch (mirrorError) {
+      console.warn('⚠️ Could not verify on mirror node:', mirrorError);
+    }
+
+    return {
+      success: true,
+      transactionId: result.transactionId,
+      consensusTimestamp: result.consensusTimestamp,
+      sequenceNumber: result.sequenceNumber,
+    };
+
+  } catch (error: any) {
+    console.error('❌ HCS submission failed:', error);
+
+    if (error.code === 4001) {
+      return {
+        success: false,
+        error: 'Transaction rejected by user',
+      };
+    }
+
+    if (error.message?.includes('insufficient')) {
+      return {
+        success: false,
+        error: 'Insufficient HBAR balance. Please fund the platform operator account.',
+      };
+    }
+
+    return {
+      success: false,
+      error: error.message || 'Failed to submit message to HCS',
     };
   }
 }

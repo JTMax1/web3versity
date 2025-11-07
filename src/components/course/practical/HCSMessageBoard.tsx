@@ -13,6 +13,7 @@ import { Send, MessageSquare, Clock, CheckCircle, Loader2, ExternalLink, Users, 
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
+import { submitTopicMessageClientSide, MESSAGE_BOARD_TOPIC_ID } from '../../../lib/hedera/hcs-service';
 
 interface HCSMessageBoardProps {
   onInteract?: () => void;
@@ -27,9 +28,6 @@ interface Message {
   consensusTimestamp?: string;
   transactionId?: string;
 }
-
-// Public HCS Topic ID for Web3versity (create this topic once)
-const HCS_TOPIC_ID = '0.0.YOUR_TOPIC_ID'; // TODO: Replace with actual topic ID
 
 export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -85,55 +83,54 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
       return;
     }
 
-    if (!hasInteracted) {
-      setHasInteracted(true);
-      onInteract?.();
-    }
-
     setIsSubmitting(true);
 
     try {
-      // TODO: In production, submit to HCS via backend API endpoint
-      // Example flow:
-      // 1. Call backend API: POST /api/hcs/submit-message
-      // 2. Backend uses TopicMessageSubmitTransaction
-      // 3. Returns transaction ID and consensus timestamp
+      // Call client-side HCS submission (prompts wallet signature)
+      const result = await submitTopicMessageClientSide({
+        topicId: MESSAGE_BOARD_TOPIC_ID,
+        message: newMessage,
+        username: username,
+      });
 
-      // For now, simulate the HCS submission
-      await simulateHCSSubmission();
+      if (!result.success) {
+        throw new Error(result.error || 'HCS submission failed');
+      }
 
-      // Add message to local state (in production, it would come from Mirror Node subscription)
+      // Only call onInteract AFTER successful transaction
+      if (!hasInteracted) {
+        setHasInteracted(true);
+        onInteract?.();
+      }
+
+      console.log('✅ HCS submission successful:', result);
+
+      // Add message to local state with real data from blockchain
       const message: Message = {
         id: Date.now().toString(),
         content: newMessage,
         author: username,
         timestamp: Date.now(),
-        sequenceNumber: messages.length + 1,
-        consensusTimestamp: new Date().toISOString(),
-        transactionId: `0.0.${Math.floor(Math.random() * 1000000)}-${Date.now()}`
+        sequenceNumber: result.sequenceNumber || messages.length + 1,
+        consensusTimestamp: result.consensusTimestamp || new Date().toISOString(),
+        transactionId: result.transactionId || 'pending'
       };
 
       setMessages(prev => [...prev, message]);
       setNewMessage('');
 
-      toast.success('Message submitted to HCS!', {
-        description: 'Your message achieved consensus in <3 seconds'
+      toast.success('✅ Message signed and submitted!', {
+        description: `Transaction: ${result.transactionId}`
       });
 
     } catch (error) {
+      console.error('❌ Failed to submit message:', error);
       toast.error('Failed to submit message', {
         description: error instanceof Error ? error.message : 'Unknown error'
       });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const simulateHCSSubmission = () => {
-    return new Promise((resolve) => {
-      // Simulate network delay for HCS submission
-      setTimeout(resolve, 1500);
-    });
   };
 
   const formatTime = (timestamp: number) => {

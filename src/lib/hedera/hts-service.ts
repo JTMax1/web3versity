@@ -6,8 +6,24 @@
  */
 
 import { supabase } from '../supabase/client';
+import {
+  Client,
+  TokenCreateTransaction,
+  TokenMintTransaction,
+  TokenType,
+  TokenSupplyType,
+  PrivateKey,
+} from '@hashgraph/sdk';
+
+// Extend window type for Ethereum provider
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 
 const MIRROR_NODE_URL = 'https://testnet.mirrornode.hedera.com/api/v1';
+const HEDERA_TESTNET_RPC = 'https://testnet.hashio.io/api';
 
 export interface CreateCollectionParams {
   name: string;
@@ -102,6 +118,216 @@ export async function mintNFT(params: MintNFTParams): Promise<MintResult> {
       transactionId: '',
       hashScanUrl: '',
       error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Mint an NFT using REAL Hedera testnet transactions
+ *
+ * This function mints REAL NFTs on Hedera testnet using the backend Edge Function
+ * that has proper Hedera operator credentials with token admin/supply keys.
+ *
+ * The user's wallet signs a message to prove authorization, then the backend
+ * creates/mints the actual NFT on HTS (Hedera Token Service).
+ *
+ * @param params - NFT minting parameters
+ * @returns Mint result with REAL token ID verifiable on HashScan
+ */
+export async function mintNFTClientSide(params: MintNFTParams): Promise<MintResult> {
+  try {
+    console.log('🎨 Minting REAL NFT on Hedera testnet...');
+
+    // Get Metamask provider for wallet verification
+    if (typeof window === 'undefined' || !window.ethereum) {
+      return {
+        success: false,
+        tokenId: '',
+        serialNumber: 0,
+        transactionId: '',
+        hashScanUrl: '',
+        error: 'Wallet not found. Please install Metamask or HashPack.',
+      };
+    }
+
+    const provider = window.ethereum;
+
+    // Request wallet connection
+    let accounts: string[];
+    try {
+      accounts = await provider.request({
+        method: 'eth_requestAccounts',
+      }) as string[];
+    } catch (error: any) {
+      if (error.code === 4001) {
+        return {
+          success: false,
+          tokenId: '',
+          serialNumber: 0,
+          transactionId: '',
+          hashScanUrl: '',
+          error: 'Wallet connection rejected by user',
+        };
+      }
+      throw error;
+    }
+
+    if (!accounts || accounts.length === 0) {
+      return {
+        success: false,
+        tokenId: '',
+        serialNumber: 0,
+        transactionId: '',
+        hashScanUrl: '',
+        error: 'No wallet account found',
+      };
+    }
+
+    console.log('✅ Wallet connected:', accounts[0]);
+
+    // Create NFT metadata
+    const nftMetadata = {
+      name: params.name,
+      description: params.description,
+      category: params.category,
+      image: params.imageData,
+      attributes: params.attributes,
+      creator: params.creatorAccountId || accounts[0],
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log('📦 NFT metadata:', nftMetadata);
+
+    // Request wallet signature to prove ownership
+    const authMessage = `Mint NFT\nName: ${params.name}\nDescription: ${params.description}\nCategory: ${params.category}\nCreator: ${params.creatorAccountId || accounts[0]}\nTimestamp: ${nftMetadata.timestamp}`;
+
+    // Convert string to hex for wallet signing (browser-compatible)
+    const encoder = new TextEncoder();
+    const messageBytes = encoder.encode(authMessage);
+    const authMessageHex = '0x' + Array.from(messageBytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    console.log('⏳ Requesting wallet signature for authorization...');
+
+    let walletSignature: string;
+    try {
+      walletSignature = await provider.request({
+        method: 'personal_sign',
+        params: [authMessageHex, accounts[0]],
+      }) as string;
+
+      console.log('✅ Wallet signature obtained:', walletSignature.substring(0, 20) + '...');
+    } catch (signError: any) {
+      if (signError.code === 4001) {
+        return {
+          success: false,
+          tokenId: '',
+          serialNumber: 0,
+          transactionId: '',
+          hashScanUrl: '',
+          error: 'Wallet signature rejected by user',
+        };
+      }
+      throw signError;
+    }
+
+    // Call Edge Function to mint REAL NFT
+    console.log('⏳ Minting NFT on Hedera network via Edge Function...');
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/nft-mint`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          name: params.name,
+          description: params.description,
+          category: params.category,
+          imageData: params.imageData,
+          attributes: params.attributes,
+          creatorAccountId: params.creatorAccountId || accounts[0],
+          collectionId: params.collectionId, // Optional: reuse collection
+          walletAddress: accounts[0],
+          walletSignature: walletSignature,
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Failed to mint NFT');
+    }
+
+    console.log('🎉 NFT minted on Hedera testnet!');
+    console.log('Token ID:', result.tokenId);
+    console.log('Serial Number:', result.serialNumber);
+    console.log('Transaction ID:', result.transactionId);
+
+    const hashScanUrl = `https://hashscan.io/testnet/token/${result.tokenId}`;
+
+    // Verify on Mirror Node
+    console.log('🔍 Verifying on Hedera Mirror Node...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    try {
+      const mirrorResponse = await fetch(
+        `https://testnet.mirrornode.hedera.com/api/v1/tokens/${result.tokenId}/nfts/${result.serialNumber}`
+      );
+
+      if (mirrorResponse.ok) {
+        const nftData = await mirrorResponse.json();
+        console.log('✅ Mirror Node verification successful:', nftData);
+      }
+    } catch (mirrorError) {
+      console.warn('⚠️ Could not verify on mirror node:', mirrorError);
+    }
+
+    return {
+      success: true,
+      tokenId: result.tokenId,
+      serialNumber: result.serialNumber,
+      transactionId: result.transactionId,
+      hashScanUrl,
+    };
+
+  } catch (error: any) {
+    console.error('❌ NFT minting failed:', error);
+
+    if (error.code === 4001) {
+      return {
+        success: false,
+        tokenId: '',
+        serialNumber: 0,
+        transactionId: '',
+        hashScanUrl: '',
+        error: 'Transaction rejected by user',
+      };
+    }
+
+    if (error.message?.includes('insufficient')) {
+      return {
+        success: false,
+        tokenId: '',
+        serialNumber: 0,
+        transactionId: '',
+        hashScanUrl: '',
+        error: 'Insufficient HBAR balance. Please fund the platform operator account.',
+      };
+    }
+
+    return {
+      success: false,
+      tokenId: '',
+      serialNumber: 0,
+      transactionId: '',
+      hashScanUrl: '',
+      error: error.message || 'Failed to mint NFT',
     };
   }
 }

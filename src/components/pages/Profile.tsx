@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Award, TrendingUp, Flame, Calendar, Edit2, Check, X, Eye, EyeOff, Wallet, BookOpen, Trophy, Target, Lock, Download, ChevronDown, ChevronUp, Mail } from 'lucide-react';
@@ -25,6 +25,13 @@ export function Profile() {
   const { data: allBadges, isLoading: badgesLoading } = useUserBadgesWithStatus(user?.id);
   const updateProfile = useUpdateUserProfile();
 
+  // Redirect to own profile if viewing someone else's profile (in useEffect to avoid render warning)
+  useEffect(() => {
+    if (user && !isOwnProfile) {
+      navigate(`/profile/${user.username}`, { replace: true });
+    }
+  }, [user, isOwnProfile, navigate]);
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#f0f9ff] via-[#e0f2fe] to-[#dbeafe] py-12">
@@ -37,9 +44,8 @@ export function Profile() {
     );
   }
 
-  // If viewing someone else's profile, redirect to own profile for now
+  // If viewing someone else's profile, show loading while redirect happens
   if (!isOwnProfile) {
-    navigate(`/profile/${user.username}`, { replace: true });
     return null;
   }
 

@@ -14,6 +14,7 @@ import {
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
+import { mintNFTClientSide } from '../../../lib/hedera/hts-service';
 
 interface NFTMinterStudioProps {
   onInteract?: () => void;
@@ -67,11 +68,7 @@ export const NFTMinterStudio: React.FC<NFTMinterStudioProps> = ({ onInteract }) 
       description: image.description
     }));
     setStep('customize');
-
-    if (!hasInteracted) {
-      setHasInteracted(true);
-      onInteract?.();
-    }
+    // Don't call onInteract here - only after successful minting
   };
 
   const addAttribute = () => {
@@ -104,31 +101,44 @@ export const NFTMinterStudio: React.FC<NFTMinterStudioProps> = ({ onInteract }) 
     setStep('mint');
 
     try {
-      // TODO: In production, call backend API endpoint
-      // POST /api/nft/mint
-      // Backend would:
-      // 1. Create NFT collection (TokenCreateTransaction) if not exists
-      // 2. Mint NFT with metadata (TokenMintTransaction)
-      // 3. Return token ID, serial number, and transaction ID
+      // Call client-side NFT minting (prompts wallet signature)
+      const result = await mintNFTClientSide({
+        name: metadata.name,
+        description: metadata.description,
+        category: metadata.category,
+        imageData: selectedImage.emoji,
+        attributes: metadata.attributes,
+        creatorAccountId: 'student',
+      });
 
-      // Simulate minting process
-      await simulateNFTMinting();
+      if (!result.success) {
+        throw new Error(result.error || 'NFT minting failed');
+      }
 
-      // Mock minted NFT data
-      const mockMintedNFT = {
-        tokenId: `0.0.${Math.floor(Math.random() * 1000000)}`,
-        serialNumber: Math.floor(Math.random() * 1000) + 1,
-        transactionId: `0.0.${Math.floor(Math.random() * 1000000)}-${Date.now()}`
+      console.log('✅ NFT minted successfully:', result);
+
+      // Use minted NFT data
+      const mintedData = {
+        tokenId: result.tokenId,
+        serialNumber: result.serialNumber,
+        transactionId: result.transactionId
       };
 
-      setMintedNFT(mockMintedNFT);
+      setMintedNFT(mintedData);
       setStep('success');
 
-      toast.success('🎉 NFT Minted Successfully!', {
-        description: 'Your NFT is now on the Hedera blockchain forever!'
+      // Only call onInteract AFTER successful minting
+      if (!hasInteracted) {
+        setHasInteracted(true);
+        onInteract?.();
+      }
+
+      toast.success('🎉 NFT Signed and Minted!', {
+        description: `Token ID: ${result.tokenId} #${result.serialNumber}`
       });
 
     } catch (error) {
+      console.error('❌ Failed to mint NFT:', error);
       toast.error('Failed to mint NFT', {
         description: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -136,12 +146,6 @@ export const NFTMinterStudio: React.FC<NFTMinterStudioProps> = ({ onInteract }) 
     } finally {
       setIsMinting(false);
     }
-  };
-
-  const simulateNFTMinting = () => {
-    return new Promise((resolve) => {
-      setTimeout(resolve, 3000); // Simulate 3 second minting process
-    });
   };
 
   const viewOnHashScan = () => {

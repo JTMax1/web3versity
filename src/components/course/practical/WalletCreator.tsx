@@ -60,6 +60,8 @@ export const WalletCreator: React.FC<WalletCreatorProps> = ({ onInteract }) => {
     setStep('generating');
 
     try {
+      console.log('🔑 Generating ECDSA keypair...');
+
       // Generate ECDSA keypair using Web Crypto API
       const keyPair = await window.crypto.subtle.generateKey(
         {
@@ -81,25 +83,53 @@ export const WalletCreator: React.FC<WalletCreatorProps> = ({ onInteract }) => {
       // Derive EVM address from public key (last 20 bytes of keccak256 hash)
       const evmAddress = await deriveEvmAddress(publicKeyBuffer);
 
-      // In production, this would call a backend endpoint to create the account
-      // For now, simulate account creation
-      const mockAccountId = `0.0.${Math.floor(Math.random() * 1000000) + 4000000}`;
+      console.log('🚀 Creating account on Hedera testnet...');
+
+      // Call the real account-create Edge Function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/account-create`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, // Required for Edge Functions
+          },
+          body: JSON.stringify({
+            publicKey: publicKeyHex,
+            initialBalance: 1, // Start with 1 HBAR
+            maxAutomaticTokenAssociations: 10,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Account creation failed');
+      }
+
+      console.log('✅ Account created:', result);
 
       const newWallet: WalletData = {
-        accountId: mockAccountId,
+        accountId: result.accountId,
         publicKey: publicKeyHex.substring(0, 66), // First 66 chars for display
         privateKey: privateKeyHex.substring(0, 64), // First 64 chars for display
-        evmAddress,
-        balance: 0,
+        evmAddress: result.evmAddress || evmAddress,
+        balance: result.balance || 1,
       };
 
       setWallet(newWallet);
       setStep('created');
-      toast.success('Wallet created successfully!');
+      toast.success('🎉 Wallet created on Hedera testnet!', {
+        description: `Account ID: ${result.accountId}`
+      });
 
     } catch (error) {
-      console.error('Error generating wallet:', error);
-      toast.error('Failed to generate wallet. Please try again.');
+      console.error('❌ Error generating wallet:', error);
+      toast.error('Failed to generate wallet. Please try again.', {
+        description: error instanceof Error ? error.message : 'Unknown error'
+      });
       setStep('intro');
     } finally {
       setIsGenerating(false);
@@ -107,7 +137,7 @@ export const WalletCreator: React.FC<WalletCreatorProps> = ({ onInteract }) => {
   };
 
   /**
-   * Request testnet HBAR from faucet
+   * Request testnet HBAR from faucet via request-faucet Edge Function
    */
   const handleRequestFunding = async () => {
     if (!wallet) return;
@@ -115,25 +145,57 @@ export const WalletCreator: React.FC<WalletCreatorProps> = ({ onInteract }) => {
     setIsFunding(true);
 
     try {
-      // In production, this calls the Hedera faucet API
-      // POST https://faucet.hedera.com/api/v1/accounts/{accountId}/fund
+      console.log('💰 Requesting testnet HBAR from faucet...');
 
-      // For now, simulate funding delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call the request-faucet Edge Function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/request-faucet`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`, // Required for Edge Functions
+          },
+          body: JSON.stringify({
+            hederaAccountId: wallet.accountId,
+            amount: 10, // Request 10 HBAR
+            userId: null, // No user authentication needed for this demo
+          }),
+        }
+      );
 
-      // Simulate successful funding
-      setWallet(prev => prev ? { ...prev, balance: 10000 } : null);
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Faucet request failed');
+      }
+
+      console.log('✅ Faucet request successful:', result);
+
+      // Query Mirror Node to verify the new balance
+      try {
+        const accountResponse = await fetch(`${MIRROR_NODE_URL}/accounts/${wallet.accountId}`);
+        const accountData = await accountResponse.json();
+        const newBalance = accountData.balance.balance / 100000000; // Convert tinybars to HBAR
+
+        setWallet(prev => prev ? { ...prev, balance: newBalance } : null);
+      } catch (mirrorError) {
+        console.warn('Could not verify balance via Mirror Node:', mirrorError);
+        // Fallback to adding 10 HBAR to existing balance
+        setWallet(prev => prev ? { ...prev, balance: prev.balance + 10 } : null);
+      }
+
       setStep('funded');
-      toast.success('Received 10,000 testnet HBAR!');
-
-      // In production, verify the funding via Mirror Node
-      // const response = await fetch(`${MIRROR_NODE_URL}/accounts/${wallet.accountId}`);
-      // const data = await response.json();
-      // setWallet(prev => prev ? { ...prev, balance: data.balance.balance / 100000000 } : null);
+      toast.success('💰 Received 10 HBAR!', {
+        description: `Transaction: ${result.transactionId}`
+      });
 
     } catch (error) {
-      console.error('Error requesting funding:', error);
-      toast.error('Failed to request funding. Try again or use the manual faucet link.');
+      console.error('❌ Error requesting funding:', error);
+      toast.error('Failed to request funding', {
+        description: error instanceof Error ? error.message : 'Try again or use the manual faucet link'
+      });
     } finally {
       setIsFunding(false);
     }

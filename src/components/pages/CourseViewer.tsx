@@ -51,6 +51,9 @@ export function CourseViewer() {
   const [currentBadge, setCurrentBadge] = useState<BadgeAwardResult | null>(null);
   const [showCourseCompleteModal, setShowCourseCompleteModal] = useState(false);
 
+  // Track if we've shown the completion screen this session (to allow reviewing completed courses)
+  const [hasShownCompletionScreen, setHasShownCompletionScreen] = useState(false);
+
   // Sync completed lessons from database
   useEffect(() => {
     if (completedLessonIds.length > 0) {
@@ -239,6 +242,7 @@ export function CourseViewer() {
           const delay = (result.badgesEarned?.length || 0) * 2000 + (result.leveledUp ? 1500 : 500);
           setTimeout(() => {
             setShowCourseCompleteModal(true);
+            setHasShownCompletionScreen(true);
           }, delay);
         }
 
@@ -439,7 +443,8 @@ export function CourseViewer() {
 
           {/* Lesson Content */}
           <div className="lg:col-span-3">
-            {allCompleted ? (
+            {/* Only show completion screen if we just completed the course this session AND we're on the last lesson */}
+            {allCompleted && hasShownCompletionScreen && currentLessonIndex === lessons.length - 1 ? (
               <div className="bg-white rounded-3xl p-12 text-center shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.9)]">
                 <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[inset_-4px_-4px_16px_rgba(0,0,0,0.05),inset_4px_4px_16px_rgba(255,255,255,0.9)]">
                   <Award className="w-12 h-12 text-green-600" />
@@ -453,24 +458,35 @@ export function CourseViewer() {
                   <div className="flex flex-wrap gap-4 justify-center">
                     <div className="bg-white rounded-2xl px-6 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
                       <div className="text-2xl mb-1">🏆</div>
-                      <div className="text-sm text-gray-600">Course Complete</div>
+                      <div className="text-sm text-gray-600">Course Completed</div>
                     </div>
                     <div className="bg-white rounded-2xl px-6 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
                       <div className="text-2xl mb-1">⭐</div>
-                      <div className="text-sm text-gray-600">+50 Points</div>
+                      <div className="text-sm text-gray-600">Points Earned</div>
                     </div>
                     <div className="bg-white rounded-2xl px-6 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
                       <div className="text-2xl mb-1">📜</div>
-                      <div className="text-sm text-gray-600">Certificate</div>
+                      <div className="text-sm text-gray-600">Certificate Earned</div>
                     </div>
                   </div>
                 </div>
-                <Button
-                  onClick={() => navigate(-1)}
-                  className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] rounded-full px-10 py-4 shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]"
-                >
-                  Back
-                </Button>
+                <div className="flex gap-4 justify-center">
+                  <Button
+                    onClick={() => {
+                      setHasShownCompletionScreen(false);
+                      setCurrentLessonIndex(0);
+                    }}
+                    className="bg-white text-[#0084C7] hover:bg-gray-50 border-2 border-[#0084C7] rounded-full px-8 py-4 shadow-[0_4px_16px_rgba(0,132,199,0.2)]"
+                  >
+                    Review Lessons
+                  </Button>
+                  <Button
+                    onClick={() => navigate(-1)}
+                    className="bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] rounded-full px-10 py-4 shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)]"
+                  >
+                    Back to Courses
+                  </Button>
+                </div>
               </div>
             ) : (
               <LessonViewer

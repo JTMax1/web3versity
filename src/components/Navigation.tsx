@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
 import { useWallet } from '../contexts/WalletContext';
 import { toast } from 'sonner';
 import { useUserStats } from '../hooks/useStats';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronDown } from 'lucide-react';
 import { ProfileDropdown } from './profile/ProfileDropdown';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 
 // ===== Helpers =====
 const formatEvmAddress = (address: string) => {
@@ -103,6 +109,13 @@ export function Navigation() {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center gap-2">
+            {connected && (
+              <NavButton
+                label="Dashboard"
+                to="/dashboard"
+                active={location.pathname === '/dashboard'}
+              />
+            )}
             <NavButton
               label="Courses"
               to="/courses"
@@ -122,19 +135,9 @@ export function Navigation() {
             {connected && (
               <>
                 <NavButton
-                  label="Dashboard"
-                  to="/dashboard"
-                  active={location.pathname === '/dashboard'}
-                />
-                <NavButton
                   label="AI Generator ✨"
                   to="/ai/generate"
                   active={location.pathname === '/ai/generate'}
-                />
-                <NavButton
-                  label="Playground"
-                  to="/playground"
-                  active={location.pathname === '/playground'}
                 />
                 <NavButton
                   label="Faucet"
@@ -143,6 +146,42 @@ export function Navigation() {
                 />
               </>
             )}
+
+            {/* More Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`px-4 py-2 rounded-full transition-all flex items-center gap-1 ${
+                    location.pathname === '/verify' || location.pathname === '/playground'
+                      ? 'bg-white/90 text-[#0084C7] shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)]'
+                      : 'text-white/90 hover:bg-white/10'
+                  }`}
+                >
+                  Verify Certificate
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white border border-gray-200 shadow-lg">
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/verify"
+                    className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50"
+                  >
+                    Verify Certificate
+                  </Link>
+                </DropdownMenuItem>
+                {connected && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/playground"
+                      className="cursor-pointer hover:bg-blue-50 focus:bg-blue-50"
+                    >
+                      Playground
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* User Actions */}
@@ -165,6 +204,14 @@ export function Navigation() {
         {mobileMenuOpen && (
           <div className="md:hidden mt-4 py-4 border-t border-white/20">
             <div className="flex flex-col gap-2">
+              {connected && (
+                <MobileNavButton
+                  label="Dashboard"
+                  to="/dashboard"
+                  active={location.pathname === '/dashboard'}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              )}
               <MobileNavButton
                 label="Courses"
                 to="/courses"
@@ -183,14 +230,20 @@ export function Navigation() {
                 active={location.pathname === '/community'}
                 onClick={() => setMobileMenuOpen(false)}
               />
+              <MobileNavButton
+                label="Verify Certificate"
+                to="/verify"
+                active={location.pathname === '/verify'}
+                onClick={() => setMobileMenuOpen(false)}
+              />
 
               {connected && (
                 <>
                   <div className="my-2 border-t border-white/20"></div>
                   <MobileNavButton
-                    label="Dashboard"
-                    to="/dashboard"
-                    active={location.pathname === '/dashboard'}
+                    label="AI Generator ✨"
+                    to="/ai/generate"
+                    active={location.pathname === '/ai/generate'}
                     onClick={() => setMobileMenuOpen(false)}
                   />
                   <MobileNavButton
@@ -231,7 +284,7 @@ function NavButton({ label, to, active }: { label: string; to: string; active: b
   return (
     <Link
       to={to}
-      className={`px-4 py-2 rounded-full transition-all ${
+      className={`px-3 py-2 rounded-full transition-all ${
         active
           ? 'bg-white/90 text-[#0084C7] shadow-[inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.9)]'
           : 'text-white/90 hover:bg-white/10'

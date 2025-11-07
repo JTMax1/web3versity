@@ -14,6 +14,7 @@ import {
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
+import { deployContractClientSide, executeContractClientSide } from '../../../lib/hedera/contracts-service';
 
 interface SmartContractPlaygroundProps {
   onInteract?: () => void;
@@ -185,11 +186,7 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
     setTransactionId(null);
     setFunctionResults({});
     setFunctionInputs({});
-
-    if (!hasInteracted) {
-      setHasInteracted(true);
-      onInteract?.();
-    }
+    // Don't call onInteract here - only after successful deployment
   };
 
   const handleDeploy = async () => {
@@ -198,26 +195,34 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
     setIsDeploying(true);
 
     try {
-      // TODO: In production, call backend API
-      // POST /api/contracts/deploy
-      // Backend would:
-      // 1. Compile Solidity code
-      // 2. Deploy via ContractCreateFlow
-      // 3. Return contract address and transaction ID
+      // Call client-side contract deployment (prompts wallet signature)
+      const result = await deployContractClientSide({
+        contractName: selectedContract.name,
+        solidityCode: selectedContract.code,
+        constructorParams: [],
+      });
 
-      await simulateDeployment();
+      if (!result.success) {
+        throw new Error(result.error || 'Deployment failed');
+      }
 
-      const mockAddress = `0.0.${Math.floor(Math.random() * 1000000)}`;
-      const mockTxId = `0.0.${Math.floor(Math.random() * 1000000)}-${Date.now()}`;
+      console.log('✅ Contract deployed:', result);
 
-      setDeployedAddress(mockAddress);
-      setTransactionId(mockTxId);
+      setDeployedAddress(result.contractId || '');
+      setTransactionId(result.transactionId || '');
 
-      toast.success('🎉 Contract Deployed!', {
-        description: `Contract is live at ${mockAddress}`
+      // Only call onInteract AFTER successful deployment
+      if (!hasInteracted) {
+        setHasInteracted(true);
+        onInteract?.();
+      }
+
+      toast.success('🎉 Contract Signed and Deployed!', {
+        description: `Contract is live at ${result.contractId}`
       });
 
     } catch (error) {
+      console.error('❌ Deployment error:', error);
       toast.error('Deployment failed', {
         description: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -232,28 +237,44 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
     setExecutingFunction(func.name);
 
     try {
-      // TODO: In production, call backend API
-      // POST /api/contracts/execute
-      // Backend would call ContractExecuteTransaction
+      console.log(`🎯 Executing function: ${func.name}`);
 
-      await simulateExecution();
+      // Build function parameters from inputs
+      const functionParams = func.inputs.map((input, i) => ({
+        type: input.type,
+        value: functionInputs[func.name]?.[i] || '',
+      }));
 
-      // Mock function results
-      let result;
-      if (func.outputs) {
-        if (func.name === 'getCount') result = Math.floor(Math.random() * 100);
-        else if (func.name === 'getMessage') result = functionInputs[func.name]?.[0] || 'Hello from Hedera!';
-        else if (func.name === 'getResults') result = `Yes: ${Math.floor(Math.random() * 50)}, No: ${Math.floor(Math.random() * 50)}`;
-        else result = 'Success';
+      // Call client-side contract execution (prompts wallet signature)
+      const apiResult = await executeContractClientSide({
+        contractId: deployedAddress,
+        functionName: func.name,
+        functionParams,
+        gas: 100000,
+      });
+
+      if (!apiResult.success) {
+        throw new Error(apiResult.error || 'Execution failed');
       }
 
-      setFunctionResults(prev => ({ ...prev, [func.name]: result }));
+      console.log('✅ Function executed:', apiResult);
+
+      // Parse result for display
+      let displayResult;
+      if (func.outputs) {
+        displayResult = apiResult.result || 'Success';
+      } else {
+        displayResult = `Transaction ID: ${apiResult.transactionId}`;
+      }
+
+      setFunctionResults(prev => ({ ...prev, [func.name]: displayResult }));
 
       toast.success(`✅ ${func.name} executed`, {
-        description: result ? `Result: ${result}` : 'Transaction successful'
+        description: displayResult ? `Result: ${String(displayResult).substring(0, 100)}` : 'Transaction successful'
       });
 
     } catch (error) {
+      console.error(`❌ Execution error for ${func.name}:`, error);
       toast.error(`Failed to execute ${func.name}`, {
         description: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -261,9 +282,6 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
       setExecutingFunction(null);
     }
   };
-
-  const simulateDeployment = () => new Promise(resolve => setTimeout(resolve, 2500));
-  const simulateExecution = () => new Promise(resolve => setTimeout(resolve, 1500));
 
   const copyCode = () => {
     if (selectedContract) {

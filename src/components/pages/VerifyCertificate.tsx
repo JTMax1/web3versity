@@ -6,15 +6,15 @@
  * - Token ID + Serial number
  *
  * Displays:
- * - Certificate SVG image
+ * - Certificate SVG image (with fallbacks: HFS → IPFS → Database)
  * - Student and course details
  * - Blockchain verification status
  * - Platform signature validation
  */
 
 import { useState } from 'react';
-import { Shield, CheckCircle, XCircle, ExternalLink, Award, User, Calendar, Hash } from 'lucide-react';
-import { fetchCertificateSVG } from '../../lib/api/certificates';
+import { Shield, CheckCircle, XCircle, ExternalLink, Award, User, Calendar, Hash, AlertTriangle } from 'lucide-react';
+import { fetchCertificateSVG, fetchCertificateSVGFromIPFS, getCertificateByNumber } from '../../lib/api/certificates';
 
 interface VerificationResult {
   valid: boolean;
@@ -30,6 +30,10 @@ interface VerificationResult {
     status: string;
     mintedAt: string;
     transferredAt?: string;
+    // Fallback fields
+    ipfsImageHash?: string;
+    ipfsImageUrl?: string;
+    svgContent?: string;
   };
   student?: {
     username: string;
@@ -55,6 +59,69 @@ export default function VerifyCertificate() {
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [svgImage, setSvgImage] = useState<string | null>(null);
   const [loadingSVG, setLoadingSVG] = useState(false);
+  const [imageSource, setImageSource] = useState<'hfs' | 'ipfs' | 'database' | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+
+  /**
+   * Fetch certificate image with fallback strategy:
+   * 1. Try HFS (Hedera File Service)
+   * 2. Fall back to IPFS/Pinata
+   * 3. Fall back to database svg_content
+   */
+  const fetchCertificateImage = async (certNumber: string, hfsFileId?: string, ipfsHash?: string) => {
+    setLoadingSVG(true);
+    setImageError(null);
+
+    // Strategy 1: Try HFS
+    if (hfsFileId) {
+      try {
+        console.log('📁 Attempting to fetch from HFS:', hfsFileId);
+        const svg = await fetchCertificateSVG(hfsFileId);
+        setSvgImage(svg);
+        setImageSource('hfs');
+        setLoadingSVG(false);
+        console.log('✅ Successfully loaded image from HFS');
+        return;
+      } catch (error) {
+        console.warn('⚠️ HFS fetch failed:', error);
+      }
+    }
+
+    // Strategy 2: Try IPFS
+    if (ipfsHash) {
+      try {
+        console.log('🌐 Attempting to fetch from IPFS:', ipfsHash);
+        const svg = await fetchCertificateSVGFromIPFS(ipfsHash);
+        setSvgImage(svg);
+        setImageSource('ipfs');
+        setLoadingSVG(false);
+        console.log('✅ Successfully loaded image from IPFS');
+        return;
+      } catch (error) {
+        console.warn('⚠️ IPFS fetch failed:', error);
+      }
+    }
+
+    // Strategy 3: Try database
+    try {
+      console.log('💾 Attempting to fetch from database:', certNumber);
+      const cert = await getCertificateByNumber(certNumber);
+      if (cert?.svg_content) {
+        setSvgImage(cert.svg_content);
+        setImageSource('database');
+        setLoadingSVG(false);
+        console.log('✅ Successfully loaded image from database');
+        return;
+      }
+    } catch (error) {
+      console.warn('⚠️ Database fetch failed:', error);
+    }
+
+    // All strategies failed
+    setImageError('Unable to load certificate image. The certificate data may be processing or unavailable.');
+    setLoadingSVG(false);
+    console.error('❌ All image loading strategies failed');
+  };
 
   const handleVerify = async (certNum?: string) => {
     const numToVerify = certNum || certificateNumber;
@@ -63,6 +130,8 @@ export default function VerifyCertificate() {
     setVerifying(true);
     setResult(null);
     setSvgImage(null);
+    setImageSource(null);
+    setImageError(null);
 
     try {
       const response = await fetch(
@@ -81,17 +150,13 @@ export default function VerifyCertificate() {
       const data = await response.json();
       setResult(data);
 
-      // If valid, fetch SVG image
-      if (data.valid && data.certificate?.imageHfsFileId) {
-        setLoadingSVG(true);
-        try {
-          const svg = await fetchCertificateSVG(data.certificate.imageHfsFileId);
-          setSvgImage(svg);
-        } catch (error) {
-          console.error('Error fetching SVG:', error);
-        } finally {
-          setLoadingSVG(false);
-        }
+      // If valid, fetch SVG image with fallback strategy
+      if (data.valid) {
+        await fetchCertificateImage(
+          numToVerify,
+          data.certificate?.imageHfsFileId,
+          data.certificate?.ipfsImageHash
+        );
       }
     } catch (error) {
       console.error('Verification error:', error);
@@ -219,7 +284,14 @@ export default function VerifyCertificate() {
                 {svgImage && (
                   <div className="bg-white rounded-2xl shadow-xl p-8">
                     <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-bold text-gray-900">Certificate</h3>
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">Certificate</h3>
+                        {imageSource && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Loaded from: {imageSource === 'hfs' ? 'Hedera File Service' : imageSource === 'ipfs' ? 'IPFS/Pinata' : 'Database'}
+                          </p>
+                        )}
+                      </div>
                       <button
                         onClick={downloadCertificate}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all flex items-center gap-2"
@@ -238,7 +310,23 @@ export default function VerifyCertificate() {
                 {loadingSVG && (
                   <div className="bg-white rounded-2xl shadow-xl p-12 text-center">
                     <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-gray-600">Loading certificate image from Hedera...</p>
+                    <p className="text-gray-600">Loading certificate image...</p>
+                    <p className="text-sm text-gray-500 mt-2">Trying multiple sources (HFS, IPFS, Database)</p>
+                  </div>
+                )}
+
+                {imageError && (
+                  <div className="bg-yellow-50 rounded-2xl p-6 border-2 border-yellow-200">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="w-6 h-6 text-yellow-600" />
+                      <div>
+                        <h3 className="font-semibold text-yellow-900">Image Loading Issue</h3>
+                        <p className="text-sm text-yellow-800 mt-1">{imageError}</p>
+                        <p className="text-xs text-yellow-700 mt-2">
+                          The certificate is verified on the blockchain, but the image is temporarily unavailable.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
 
