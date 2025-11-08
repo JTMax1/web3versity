@@ -201,19 +201,24 @@ async function mintNFT(
   metadata: MintRequest
 ): Promise<{ success: boolean; tokenId?: string; serialNumber?: number; transactionId?: string; error?: string }> {
   try {
-    // Create metadata JSON
-    const nftMetadata = {
-      name: metadata.name,
-      description: metadata.description,
-      category: metadata.category,
-      image: metadata.imageData,
-      attributes: metadata.attributes,
-      creator: metadata.creatorAccountId,
-      timestamp: new Date().toISOString(),
+    // Create COMPACT metadata (Hedera has 100 byte limit per NFT metadata)
+    // Only include essential info - full metadata can be stored off-chain (IPFS/Arweave)
+    const compactMetadata = {
+      n: metadata.name.substring(0, 30), // name (truncated)
+      c: metadata.category.substring(0, 10), // category
+      i: metadata.imageData, // image emoji
+      t: Date.now(), // timestamp
     };
 
-    // Convert metadata to bytes
-    const metadataBytes = new TextEncoder().encode(JSON.stringify(nftMetadata));
+    // Convert metadata to bytes (should be under 100 bytes)
+    const metadataBytes = new TextEncoder().encode(JSON.stringify(compactMetadata));
+
+    // Check size (Hedera limit is 100 bytes)
+    if (metadataBytes.length > 100) {
+      throw new Error(`Metadata too large: ${metadataBytes.length} bytes (max 100)`);
+    }
+
+    console.log(`NFT metadata size: ${metadataBytes.length} bytes`);
 
     // Mint NFT
     const mintTx = await new TokenMintTransaction()

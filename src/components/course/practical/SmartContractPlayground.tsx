@@ -211,14 +211,11 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
       setDeployedAddress(result.contractId || '');
       setTransactionId(result.transactionId || '');
 
-      // Only call onInteract AFTER successful deployment
-      if (!hasInteracted) {
-        setHasInteracted(true);
-        onInteract?.();
-      }
+      // DON'T call onInteract here - wait until user executes a function
+      // This allows them to interact with the deployed contract first
 
       toast.success('🎉 Contract Signed and Deployed!', {
-        description: `Contract is live at ${result.contractId}`
+        description: `Contract is live at ${result.contractId}. Now try executing a function!`
       });
 
     } catch (error) {
@@ -268,6 +265,13 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
       }
 
       setFunctionResults(prev => ({ ...prev, [func.name]: displayResult }));
+
+      // NOW call onInteract after successful function execution
+      // This completes the lesson only AFTER user interacts with deployed contract
+      if (!hasInteracted) {
+        setHasInteracted(true);
+        onInteract?.();
+      }
 
       toast.success(`✅ ${func.name} executed`, {
         description: displayResult ? `Result: ${String(displayResult).substring(0, 100)}` : 'Transaction successful'
