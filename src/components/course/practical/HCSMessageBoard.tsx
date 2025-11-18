@@ -119,12 +119,19 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
       console.log('✅ HCS submission successful:', result);
 
       // Add message to local state with real data from blockchain
+      // Convert sequenceNumber from Long object to number if needed
+      const sequenceNum = result.sequenceNumber
+        ? (typeof result.sequenceNumber === 'object'
+            ? Number(result.sequenceNumber)
+            : result.sequenceNumber)
+        : messages.length + 1;
+
       const message: Message = {
         id: Date.now().toString(),
         content: newMessage,
         author: username,
         timestamp: Date.now(),
-        sequenceNumber: result.sequenceNumber || messages.length + 1,
+        sequenceNumber: sequenceNum,
         consensusTimestamp: result.consensusTimestamp || new Date().toISOString(),
         transactionId: result.transactionId || 'pending'
       };
