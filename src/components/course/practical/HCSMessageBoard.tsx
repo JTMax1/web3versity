@@ -108,7 +108,9 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
       if (!hasInteracted) {
         setFirstMessageData({
           transactionId: result.transactionId || 'pending',
-          sequenceNumber: result.sequenceNumber,
+          sequenceNumber: typeof result.sequenceNumber === 'object'
+            ? Number(result.sequenceNumber)
+            : result.sequenceNumber,
           messageContent: newMessage
         });
         setShowSuccessModal(true);
