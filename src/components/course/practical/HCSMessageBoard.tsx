@@ -103,12 +103,9 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
         throw new Error(result.error || 'HCS submission failed');
       }
 
-      // Only call onInteract AFTER successful transaction
+      // Show success modal for first message only
+      // DON'T call onInteract yet - wait until user dismisses the modal
       if (!hasInteracted) {
-        setHasInteracted(true);
-        onInteract?.();
-
-        // Show success modal for first message only
         setFirstMessageData({
           transactionId: result.transactionId || 'pending',
           sequenceNumber: result.sequenceNumber,
@@ -173,7 +170,14 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowSuccessModal(false)}
+          onClick={() => {
+            setShowSuccessModal(false);
+            // Call onInteract when modal is dismissed via backdrop click
+            if (!hasInteracted) {
+              setHasInteracted(true);
+              onInteract?.();
+            }
+          }}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -265,6 +269,11 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
                   onClick={() => {
                     viewOnHashScan(firstMessageData.transactionId);
                     setShowSuccessModal(false);
+                    // Call onInteract after user has seen the modal
+                    if (!hasInteracted) {
+                      setHasInteracted(true);
+                      onInteract?.();
+                    }
                   }}
                   className="w-full py-6 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] hover:from-[#006ba3] hover:to-[#0084C7] text-white rounded-xl text-base font-semibold"
                 >
@@ -272,7 +281,14 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
                   View on HashScan
                 </Button>
                 <Button
-                  onClick={() => setShowSuccessModal(false)}
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    // Call onInteract after user has seen the modal
+                    if (!hasInteracted) {
+                      setHasInteracted(true);
+                      onInteract?.();
+                    }
+                  }}
                   variant="outline"
                   className="w-full py-6 rounded-xl text-base font-semibold"
                 >
