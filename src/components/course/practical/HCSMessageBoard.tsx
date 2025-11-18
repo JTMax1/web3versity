@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, MessageSquare, Clock, CheckCircle, Loader2, ExternalLink, Users, Zap } from 'lucide-react';
+import { Send, MessageSquare, Clock, CheckCircle, Loader2, ExternalLink, Users, Zap, Trophy, Sparkles } from 'lucide-react';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
@@ -36,6 +36,12 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [firstMessageData, setFirstMessageData] = useState<{
+    transactionId: string;
+    sequenceNumber?: number;
+    messageContent: string;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -101,6 +107,14 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
       if (!hasInteracted) {
         setHasInteracted(true);
         onInteract?.();
+
+        // Show success modal for first message only
+        setFirstMessageData({
+          transactionId: result.transactionId || 'pending',
+          sequenceNumber: result.sequenceNumber,
+          messageContent: newMessage
+        });
+        setShowSuccessModal(true);
       }
 
       console.log('✅ HCS submission successful:', result);
@@ -146,6 +160,131 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
 
   const viewOnHashScan = (txId: string) => {
     window.open(`https://hashscan.io/testnet/transaction/${txId}`, '_blank');
+  };
+
+  // Success Modal Component
+  const SuccessModal = () => {
+    if (!showSuccessModal || !firstMessageData) return null;
+
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowSuccessModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Success Header */}
+            <div className="bg-gradient-to-r from-[#0084C7] via-[#00a8e8] to-[#0084C7] p-8 text-center text-white">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="mb-4"
+              >
+                <div className="w-20 h-20 mx-auto bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <Trophy className="w-10 h-10" />
+                </div>
+              </motion.div>
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-2xl md:text-3xl font-bold mb-2"
+              >
+                Message Submitted! 🎉
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-white/90"
+              >
+                Your message is now on Hedera Consensus Service
+              </motion.p>
+            </div>
+
+            {/* Message Details */}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-xl">
+                <div className="text-3xl">💬</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Your Message</p>
+                  <p className="font-semibold text-gray-900 dark:text-white line-clamp-2">
+                    "{firstMessageData.messageContent}"
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                <div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Transaction ID</p>
+                  <p className="font-mono text-sm font-semibold text-gray-900 dark:text-white break-all">
+                    {firstMessageData.transactionId}
+                  </p>
+                </div>
+                {firstMessageData.sequenceNumber && (
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Sequence Number</p>
+                    <p className="font-mono text-sm text-gray-700 dark:text-gray-300">
+                      #{firstMessageData.sequenceNumber}
+                    </p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Topic ID</p>
+                  <p className="font-mono text-xs text-gray-700 dark:text-gray-300">
+                    {MESSAGE_BOARD_TOPIC_ID}
+                  </p>
+                </div>
+              </div>
+
+              {/* Info Box */}
+              <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-950/20 rounded-xl border border-green-200 dark:border-green-800">
+                <Sparkles className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  <p className="font-semibold mb-1">Consensus Achieved!</p>
+                  <p className="text-xs">
+                    Your message has been ordered by Hedera's consensus and is now immutable. View it on HashScan to verify the timestamp and order.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3 pt-2">
+                <Button
+                  onClick={() => {
+                    viewOnHashScan(firstMessageData.transactionId);
+                    setShowSuccessModal(false);
+                  }}
+                  className="w-full py-6 bg-gradient-to-r from-[#0084C7] to-[#00a8e8] hover:from-[#006ba3] hover:to-[#0084C7] text-white rounded-xl text-base font-semibold"
+                >
+                  <ExternalLink className="w-5 h-5 mr-2" />
+                  View on HashScan
+                </Button>
+                <Button
+                  onClick={() => setShowSuccessModal(false)}
+                  variant="outline"
+                  className="w-full py-6 rounded-xl text-base font-semibold"
+                >
+                  <Send className="w-5 h-5 mr-2" />
+                  Send Another Message
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
   };
 
   return (
@@ -367,6 +506,9 @@ export const HCSMessageBoard: React.FC<HCSMessageBoardProps> = ({ onInteract }) 
           </div>
         </div>
       </Card>
+
+      {/* Success Modal */}
+      <SuccessModal />
     </div>
   );
 };
