@@ -247,7 +247,7 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
         contractId: deployedAddress,
         functionName: func.name,
         functionParams,
-        gas: 100000,
+        gas: 300000, // Increased gas for contract function execution
       });
 
       if (!apiResult.success) {
@@ -444,7 +444,7 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
               {copiedCode ? 'Copied!' : 'Copy'}
             </Button>
           </div>
-          <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-xs md:text-sm font-mono max-h-96 overflow-y-auto">
+          <div className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto text-xs md:text-sm font-mono max-h-96 overflow-y-auto">
             <pre>{selectedContract.code}</pre>
           </div>
         </Card>

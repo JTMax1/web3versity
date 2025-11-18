@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for:*)",
+      "Bash(then if grep -q \"lesson_content\" \"$file\")",
+      "Bash(then echo \"❌ STILL HAS ISSUE: $file\")",
+      "Bash(else echo \"✅ FIXED: $file\")",
+      "Bash(then echo \"✅ OK: $file (no lessons to fix)\")",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(do if grep -q \"''course_0$id''\" 069_*.sql 070_*.sql 071_*.sql 072_*.sql 073_*.sql 074_*.sql 075_*.sql 076_*.sql 077_*.sql)",
+      "Bash(then echo \"⚠️  Found: course_0$id\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
