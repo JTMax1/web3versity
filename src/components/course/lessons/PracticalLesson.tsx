@@ -26,7 +26,7 @@
  */
 
 import React, { useState } from 'react';
-import { CheckCircle, AlertCircle, Sparkles, Trophy, Lightbulb } from 'lucide-react';
+import { CheckCircle, AlertCircle, Sparkles, Trophy, Lightbulb, ExternalLink } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { TransactionSender } from '../practical/TransactionSender';
@@ -79,19 +79,20 @@ export function PracticalLesson({
   isCompleting = false,
 }: PracticalLessonProps) {
   const [currentStep, setCurrentStep] = useState<Step>('intro');
-  const [transactionCompleted, setTransactionCompleted] = useState(false);
-  const [transactionId, setTransactionId] = useState('');
-  const [hashScanUrl, setHashScanUrl] = useState('');
+  const [canComplete, setCanComplete] = useState(false);
+  const [latestTransactionId, setLatestTransactionId] = useState('');
+  const [latestHashScanUrl, setLatestHashScanUrl] = useState('');
+  const [showSuccessCard, setShowSuccessCard] = useState(true);
 
   const handleTransactionSuccess = (txId?: string, scanUrl?: string) => {
-    setTransactionCompleted(true);
-    if (txId) setTransactionId(txId);
-    if (scanUrl) setHashScanUrl(scanUrl);
+    setCanComplete(true);
+    if (txId) setLatestTransactionId(txId);
+    if (scanUrl) setLatestHashScanUrl(scanUrl);
+    setShowSuccessCard(true);
     toast.success('🎉 Transaction Successful!', {
-      description: 'You can now complete the lesson.'
+      description: 'You can continue interacting or save your progress.'
     });
-    // Move to success step but don't auto-complete
-    setCurrentStep('success');
+    // DON'T switch to success step - keep user on interactive step
   };
 
   const handleCompleteLesson = () => {
@@ -111,9 +112,10 @@ export function PracticalLesson({
 
   const handleTryAgain = () => {
     setCurrentStep('interactive');
-    setTransactionCompleted(false);
-    setTransactionId('');
-    setHashScanUrl('');
+    setCanComplete(false);
+    setLatestTransactionId('');
+    setLatestHashScanUrl('');
+    setShowSuccessCard(false);
   };
 
   const renderInteractiveComponent = () => {
@@ -243,32 +245,32 @@ export function PracticalLesson({
       {/* Progress Indicator */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          {(['intro', 'interactive', 'success'] as const).map((step, index) => (
+          {(['intro', 'interactive'] as const).map((step, index) => (
             <React.Fragment key={step}>
               <div className="flex flex-col items-center">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                   currentStep === step
                     ? 'bg-[#0084C7] text-white shadow-[0_4px_16px_rgba(0,132,199,0.4)]'
-                    : currentStep === 'success' && index <= 2
+                    : step === 'interactive' && currentStep === 'intro'
+                    ? 'bg-gray-200 text-gray-500'
+                    : canComplete && step === 'interactive'
                     ? 'bg-green-500 text-white'
                     : 'bg-gray-200 text-gray-500'
                 }`}>
-                  {step === 'success' ? (
+                  {canComplete && step === 'interactive' ? (
                     <CheckCircle className="w-5 h-5" />
                   ) : (
                     <span>{index + 1}</span>
                   )}
                 </div>
                 <span className="text-xs mt-2 text-gray-600 capitalize">
-                  {step}
+                  {step === 'interactive' ? 'Practice' : step}
                 </span>
               </div>
-              {index < 2 && (
+              {index < 1 && (
                 <div className={`flex-1 h-1 mx-2 rounded transition-all ${
-                  currentStep === 'success' || (currentStep === 'interactive' && index === 0)
+                  currentStep === 'interactive'
                     ? 'bg-[#0084C7]'
-                    : currentStep === 'success'
-                    ? 'bg-green-500'
                     : 'bg-gray-200'
                 }`} />
               )}
@@ -342,82 +344,91 @@ export function PracticalLesson({
             <Alert className="border-blue-200 bg-blue-50">
               <AlertCircle className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800">
-                <strong>Hands-On Practice:</strong> Complete the interactive exercise below to finish this lesson.
+                <strong>Hands-On Practice:</strong> Complete the interactive exercise below. You can interact as many times as you want!
               </AlertDescription>
             </Alert>
 
             {renderInteractiveComponent()}
-          </>
-        )}
 
-        {/* Success Step */}
-        {currentStep === 'success' && (
-          <>
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
-              <div className="text-center">
-                <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
-                  <Trophy className="w-12 h-12 text-white" />
-                </div>
+            {/* Inline Success Card - Shows after first interaction */}
+            {canComplete && showSuccessCard && (
+              <div className="mt-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 shadow-[0_4px_16px_rgba(34,197,94,0.2)] border-2 border-green-200">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-lg font-bold text-gray-900 mb-1">
+                        🎉 {content.successMessage}
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-3">
+                        You can continue practicing or save your progress below.
+                      </p>
 
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{content.successMessage}</h3>
-                <p className="text-gray-600 mb-6">
-                  Click "Save & Continue" below to earn 50 XP and move to the next lesson.
-                </p>
+                      {latestTransactionId && (
+                        <div className="bg-white rounded-lg p-3 mb-3 text-xs">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-gray-600">Latest Transaction:</span>
+                            <span className="font-mono text-gray-900">
+                              {latestTransactionId.substring(0, 25)}...
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Status:</span>
+                            <span className="text-green-600 font-semibold">✓ Confirmed</span>
+                          </div>
+                        </div>
+                      )}
 
-                {transactionId && (
-                  <div className="bg-white rounded-2xl p-6 mb-6 shadow-[inset_0_2px_8px_rgba(0,0,0,0.06)]">
-                    <div className="space-y-3 text-left">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Transaction ID:</span>
-                        <span className="font-mono text-sm text-gray-900">
-                          {transactionId.substring(0, 20)}...
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Status:</span>
-                        <span className="text-green-600 font-semibold">✓ Confirmed</span>
-                      </div>
+                      {latestHashScanUrl && (
+                        <Button
+                          onClick={() => window.open(latestHashScanUrl, '_blank')}
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto mb-3"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          View on HashScan
+                        </Button>
+                      )}
                     </div>
                   </div>
-                )}
 
-                {hashScanUrl && (
-                  <Button
-                    onClick={() => window.open(hashScanUrl, '_blank')}
-                    variant="outline"
-                    className="rounded-full px-6 mb-4"
+                  <button
+                    onClick={() => setShowSuccessCard(false)}
+                    className="text-gray-400 hover:text-gray-600 flex-shrink-0"
                   >
-                    View on HashScan
-                  </Button>
-                )}
-
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl p-4 border border-yellow-200 mb-6">
-                  <p className="text-sm text-yellow-900">
-                    <strong>🏆 Achievement Unlocked!</strong> You've successfully completed a practical blockchain lesson. Keep learning to unlock more achievements!
-                  </p>
+                    <span className="sr-only">Dismiss</span>
+                    ✕
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Save & Continue Button - Like other lessons */}
-            <Button
-              onClick={handleCompleteLesson}
-              disabled={isCompleting}
-              className={`w-full py-6 rounded-2xl transition-all duration-200 text-lg font-semibold ${
-                isCompleting
-                  ? 'bg-gray-400 text-white cursor-wait'
+            {/* Inline Save & Continue Button - Shows after first interaction */}
+            {canComplete && (
+              <Button
+                onClick={handleCompleteLesson}
+                disabled={isCompleting}
+                className={`
+                  w-full mt-4 py-6 rounded-2xl transition-all duration-200 text-lg font-semibold
+                  ${isCompleting
+                    ? 'bg-gray-400 text-white cursor-wait'
+                    : isCompleted
+                    ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-[0_4px_16px_rgba(34,197,94,0.3)]'
+                    : 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] shadow-[0_4px_16px_rgba(0,132,199,0.3)]'
+                  }
+                `}
+              >
+                <CheckCircle className="w-5 h-5 mr-2" />
+                {isCompleting
+                  ? 'Saving...'
                   : isCompleted
-                  ? 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 shadow-[0_4px_16px_rgba(34,197,94,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(34,197,94,0.3),inset_2px_2px_8px_rgba(0,0,0,0.2)]'
-                  : 'bg-gradient-to-r from-[#0084C7] to-[#00a8e8] text-white hover:from-[#0074b7] hover:to-[#0098d8] shadow-[0_4px_16px_rgba(0,132,199,0.3),inset_-2px_-2px_8px_rgba(0,0,0,0.1),inset_2px_2px_8px_rgba(255,255,255,0.2)] active:translate-y-[2px] active:shadow-[0_2px_8px_rgba(0,132,199,0.3),inset_2px_2px_8px_rgba(0,0,0,0.2)]'
-              }`}
-            >
-              <CheckCircle className="w-5 h-5 mr-2" />
-              {isCompleting
-                ? 'Saving...'
-                : isCompleted
-                ? 'Continue to Next Lesson →'
-                : 'Save & Continue'}
-            </Button>
+                  ? 'Continue to Next Lesson →'
+                  : 'Save & Continue (+50 XP)'}
+              </Button>
+            )}
           </>
         )}
       </div>

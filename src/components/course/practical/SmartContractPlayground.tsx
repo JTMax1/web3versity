@@ -9,12 +9,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Code, Play, Rocket, CheckCircle, ExternalLink, Zap,
-  FileCode, Activity, Loader2, Copy, Check, Terminal
+  FileCode, Activity, Loader2, Copy, Check, Terminal, Trophy, Sparkles
 } from 'lucide-react';
 import { Card } from '../../ui/card';
 import { Button } from '../../ui/button';
 import { toast } from 'sonner';
-import { deployContractClientSide, executeContractClientSide } from '../../../lib/hedera/contracts-service';
+import { deployContractClientSide, executeContractClientSide, queryContractClientSide } from '../../../lib/hedera/contracts-service';
 
 interface SmartContractPlaygroundProps {
   onInteract?: () => void;
@@ -35,6 +35,7 @@ interface ContractFunction {
   inputs: { name: string; type: string; placeholder?: string }[];
   outputs?: string;
   isPayable?: boolean;
+  readonly?: boolean; // For view/pure functions
 }
 
 const SAMPLE_CONTRACTS: Contract[] = [
@@ -77,7 +78,8 @@ contract SimpleCounter {
         name: 'getCount',
         description: 'Get the current count value',
         inputs: [],
-        outputs: 'uint256'
+        outputs: 'uint256',
+        readonly: true
       }
     ]
   },
@@ -115,7 +117,8 @@ contract MessageStorage {
         name: 'getMessage',
         description: 'Retrieve the stored message',
         inputs: [],
-        outputs: 'string'
+        outputs: 'string',
+        readonly: true
       }
     ]
   },
@@ -163,7 +166,8 @@ contract SimpleVoting {
         name: 'getResults',
         description: 'Get current vote counts',
         inputs: [],
-        outputs: '(uint256, uint256)'
+        outputs: '(uint256, uint256)',
+        readonly: true
       }
     ]
   }
@@ -179,6 +183,7 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
   const [executingFunction, setExecutingFunction] = useState<string | null>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const handleSelectContract = (contract: Contract) => {
     setSelectedContract(contract);
@@ -186,6 +191,7 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
     setTransactionId(null);
     setFunctionResults({});
     setFunctionInputs({});
+    setShowSuccessModal(false);
     // Don't call onInteract here - only after successful deployment
   };
 
@@ -210,6 +216,7 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
 
       setDeployedAddress(result.contractId || '');
       setTransactionId(result.transactionId || '');
+      setShowSuccessModal(true); // Show success modal
 
       // DON'T call onInteract here - wait until user executes a function
       // This allows them to interact with the deployed contract first
@@ -242,26 +249,39 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
         value: functionInputs[func.name]?.[i] || '',
       }));
 
-      // Call client-side contract execution (prompts wallet signature)
-      const apiResult = await executeContractClientSide({
-        contractId: deployedAddress,
-        functionName: func.name,
-        functionParams,
-        gas: 300000, // Increased gas for contract function execution
-      });
+      // For readonly functions (view/pure), use query instead of execute
+      const isReadonly = func.readonly || false;
+
+      const apiResult = isReadonly
+        ? await queryContractClientSide({
+            contractId: deployedAddress,
+            functionName: func.name,
+            functionParams,
+            outputType: func.outputs, // Pass output type for proper decoding
+            gas: 300000,
+          })
+        : await executeContractClientSide({
+            contractId: deployedAddress,
+            functionName: func.name,
+            functionParams,
+            gas: 300000,
+          });
 
       if (!apiResult.success) {
         throw new Error(apiResult.error || 'Execution failed');
       }
 
-      console.log('✅ Function executed:', apiResult);
+      console.log(`✅ Function ${isReadonly ? 'queried' : 'executed'}:`, apiResult);
 
       // Parse result for display
       let displayResult;
-      if (func.outputs) {
-        displayResult = apiResult.result || 'Success';
-      } else {
+      if (func.outputs && apiResult.result !== undefined) {
+        // For readonly functions, result should already be decoded
+        displayResult = apiResult.result;
+      } else if (!isReadonly) {
         displayResult = `Transaction ID: ${apiResult.transactionId}`;
+      } else {
+        displayResult = 'Success';
       }
 
       setFunctionResults(prev => ({ ...prev, [func.name]: displayResult }));
@@ -300,6 +320,123 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
     if (deployedAddress) {
       window.open(`https://hashscan.io/testnet/contract/${deployedAddress}`, '_blank');
     }
+  };
+
+  // Success Modal Component
+  const SuccessModal = () => {
+    if (!showSuccessModal || !selectedContract || !deployedAddress) return null;
+
+    return (
+      <AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowSuccessModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Success Header */}
+            <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 p-8 text-center text-white">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="mb-4"
+              >
+                <div className="w-20 h-20 mx-auto bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <Trophy className="w-10 h-10" />
+                </div>
+              </motion.div>
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-2xl md:text-3xl font-bold mb-2"
+              >
+                Contract Deployed! 🎉
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-white/90"
+              >
+                Your smart contract is now live on Hedera testnet
+              </motion.p>
+            </div>
+
+            {/* Contract Details */}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl">
+                <div className="text-3xl">{selectedContract.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Contract Name</p>
+                  <p className="font-bold text-gray-900 dark:text-white">{selectedContract.name}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+                <div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Contract ID</p>
+                  <p className="font-mono text-sm font-semibold text-gray-900 dark:text-white break-all">
+                    {deployedAddress}
+                  </p>
+                </div>
+                {transactionId && (
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Transaction ID</p>
+                    <p className="font-mono text-xs text-gray-700 dark:text-gray-300 break-all">
+                      {transactionId}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Info Box */}
+              <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-gray-700 dark:text-gray-300">
+                  <p className="font-semibold mb-1">Your contract is verified on HashScan!</p>
+                  <p className="text-xs">
+                    Click below to view your contract on the blockchain explorer and verify the deployment.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3 pt-2">
+                <Button
+                  onClick={() => {
+                    viewOnHashScan();
+                    setShowSuccessModal(false);
+                  }}
+                  className="w-full py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl text-base font-semibold"
+                >
+                  <ExternalLink className="w-5 h-5 mr-2" />
+                  View on HashScan
+                </Button>
+                <Button
+                  onClick={() => setShowSuccessModal(false)}
+                  variant="outline"
+                  className="w-full py-6 rounded-xl text-base font-semibold"
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Test Contract Functions
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      </AnimatePresence>
+    );
   };
 
   // Contract Selection View
@@ -568,6 +705,9 @@ export const SmartContractPlayground: React.FC<SmartContractPlaygroundProps> = (
           </div>
         </Card>
       </div>
+
+      {/* Success Modal */}
+      <SuccessModal />
     </div>
   );
 };

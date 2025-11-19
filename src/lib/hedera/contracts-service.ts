@@ -41,6 +41,7 @@ export interface ExecuteContractParams {
   functionName: string;
   functionParams?: Array<{ type: string; value: any }>;
   gas?: number;
+  outputType?: string; // For readonly functions - helps with decoding
 }
 
 export interface ExecuteContractResult {
@@ -343,21 +344,25 @@ export async function executeContractClientSide(
     console.log('Transaction ID:', result.transactionId);
     console.log('Result:', result.result);
 
-    // Verify on Mirror Node
+    // Verify on Mirror Node (optional - skip if it fails)
     console.log('🔍 Verifying on Hedera Mirror Node...');
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     try {
+      // Mirror Node expects transaction ID with @ replaced by -
+      const txIdForMirror = result.transactionId.replace('@', '-');
       const mirrorResponse = await fetch(
-        `https://testnet.mirrornode.hedera.com/api/v1/transactions/${result.transactionId}`
+        `https://testnet.mirrornode.hedera.com/api/v1/transactions/${txIdForMirror}`
       );
 
       if (mirrorResponse.ok) {
         const txData = await mirrorResponse.json();
         console.log('✅ Mirror Node verification successful:', txData);
+      } else {
+        console.log(`ℹ️ Mirror Node returned ${mirrorResponse.status} (this is OK - transaction was successful)`);
       }
     } catch (mirrorError) {
-      console.warn('⚠️ Could not verify on mirror node:', mirrorError);
+      console.log('ℹ️ Skipping Mirror Node verification (transaction was still successful)');
     }
 
     return {
@@ -391,16 +396,60 @@ export async function executeContractClientSide(
 }
 
 /**
- * Query a smart contract (view/pure functions) using CLIENT-SIDE wallet
+ * Query a smart contract (view/pure functions) - NO wallet signature needed
  *
  * @param params - Contract query parameters
- * @returns Query result
+ * @returns Query result with decoded return value
  */
 export async function queryContractClientSide(
   params: ExecuteContractParams
 ): Promise<ExecuteContractResult> {
-  // For view functions, we use the same flow as execute
-  // but typically no wallet signature is needed for reads
-  // For educational purposes, we'll still prompt for signature
-  return executeContractClientSide(params);
+  try {
+    console.log('📖 Querying contract (view function)...');
+    console.log('  Contract ID:', params.contractId);
+    console.log('  Function:', params.functionName);
+
+    // Call Edge Function with 'query' action
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/contract-deploy`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          action: 'query',
+          contractId: params.contractId,
+          functionName: params.functionName,
+          functionParams: params.functionParams || [],
+          gas: params.gas || 100000,
+          outputType: params.outputType, // Pass output type for decoding
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Query failed');
+    }
+
+    console.log('✅ Contract query successful!');
+    console.log('Result:', result.result);
+
+    return {
+      success: true,
+      result: result.result,
+    };
+
+  } catch (error: any) {
+    console.error('❌ Contract query failed:', error);
+
+    return {
+      success: false,
+      error: error.message || 'Failed to query contract',
+    };
+  }
 }
